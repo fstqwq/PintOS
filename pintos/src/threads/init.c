@@ -133,7 +133,26 @@ pintos_init (void)
     /* Run actions specified on kernel command line. */
     run_actions (argv);
   } else {
-    // TODO: no command line passed to kernel. Run interactively 
+    /* Command line implemented by fstqwq */
+#define MAX_CMD_LENGTH 128
+    static char cmd[MAX_CMD_LENGTH];
+    int failed_cnt = 0;
+    do {
+      input_getline (cmd, MAX_CMD_LENGTH);
+      if (strcmp(cmd, "whoami") == 0) {
+        puts ("I am Pintakina!");
+      } else if (strcmp(cmd, "exit") == 0){
+        shutdown_configure (SHUTDOWN_POWER_OFF);
+        break;
+      } else if (strcmp(cmd, "") != 0){
+        failed_cnt ++;
+        int i;
+        for (i = 0; i < failed_cnt; i++) {
+          putchar ('?');
+        }
+        putchar ('\n');
+      }
+    } while (true);
   }
 
   /* Finish up. */
