@@ -126,7 +126,6 @@ pintos_init (void)
   locate_block_devices ();
   filesys_init (format_filesys);
 #endif
-
   printf ("Boot complete.\n");
   
   if (*argv != NULL) {
