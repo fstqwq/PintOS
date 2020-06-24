@@ -126,14 +126,37 @@ pintos_init (void)
   locate_block_devices ();
   filesys_init (format_filesys);
 #endif
-
   printf ("Boot complete.\n");
   
   if (*argv != NULL) {
     /* Run actions specified on kernel command line. */
     run_actions (argv);
   } else {
-    // TODO: no command line passed to kernel. Run interactively 
+    // TODO: no command line passed to kernel. Run interactively
+
+    int tail = 0;
+    char buf[64], ch;
+
+    while (true) {
+      printf("CS318>");
+      memset(buf, sizeof(buf), 0);
+      do {
+        ch = input_getc();
+        buf[tail++] = ch;
+        if (tail == 64) {
+          printf(buf);
+          memset(buf, sizeof(buf), 0);
+          tail = 0;
+        }
+      } while (ch == '\n');
+      printf(buf);
+      if (strcmp("whoami\n", buf) == 0) {
+        printf("Akina\n");
+      }
+      else if (strcmp("exit\n", buf == 0)) {
+        break;
+      }
+    }
   }
 
   /* Finish up. */
