@@ -137,7 +137,7 @@ pintos_init (void)
     static char cmd[MAX_CMD_LENGTH];
     int failed_cnt = 0;
     do {
-      printf("akina@PintOS$");
+      printf("Pintakina$ ");
       input_getline (cmd, MAX_CMD_LENGTH);
       bool failed = false;
       if (strcmp(cmd, "whoami") == 0) {

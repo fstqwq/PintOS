@@ -1,16 +1,5 @@
-#ifndef PINTOS_FLOAT_POINTIXED_POINT
-#define PINTOS_FLOAT_POINTIXED_POINT
 
-#include "lib/stdint.h"
-#include "lib/stdio.h"
-/*
- * [31 sgn][30:14 int][13:0 point]
- */
-
-struct fixed32 {
-  int32_t num;
-};
-
+#include "fixed_point.h"
 const int FLOAT_POINT = 1 << 14;
 
 struct fixed32 fixed32_init(int32_t x) {
@@ -84,4 +73,3 @@ struct fixed32 fixed32_div_int_int(int32_t a, int32_t b) {
 bool fixed32_less_than(struct fixed32 a, struct fixed32 b) {
   return a.num < b.num;
 }
-#endif

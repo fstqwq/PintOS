@@ -132,9 +132,9 @@ fi
 if [ $tool == "all" -o $tool == "gcc" ]; then
   echo "Building GCC..."
   mkdir -p $CWD/build/gcc && cd $CWD/build/gcc 
-  ../../src/gcc-6.2.0/configure --prefix=$PREFIX --target=$TARGET \
-    --disable-multilib --disable-nls --disable-werror --disable-libssp \
-    --disable-libmudflap --with-newlib --without-headers --enable-languages=c,c++ || perror "Failed to configure gcc"
+  # ../../src/gcc-6.2.0/configure --prefix=$PREFIX --target=$TARGET \
+  #   --disable-multilib --disable-nls --disable-werror --disable-libssp \
+  #  --disable-libmudflap --with-newlib --without-headers --enable-languages=c,c++ || perror "Failed to configure gcc"
   make -j8 all-gcc  || perror "Failed to make gcc"
   make install-gcc
   make all-target-libgcc || perror "Failed to libgcc"
