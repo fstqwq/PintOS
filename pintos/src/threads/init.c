@@ -137,6 +137,7 @@ pintos_init (void)
     static char cmd[MAX_CMD_LENGTH];
     int failed_cnt = 0;
     do {
+    	printf("Akina>");
       input_getline (cmd, MAX_CMD_LENGTH);
       if (strcmp(cmd, "whoami") == 0) {
         puts ("I am Pintakina!");
