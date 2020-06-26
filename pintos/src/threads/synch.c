@@ -223,8 +223,9 @@ notify_donation(struct thread *t) {
         donater_elem != list_end (&l->donaters);
         donater_elem = list_next (donater_elem)) {
         struct thread *tmp = list_entry (donater_elem, struct thread, donate_elem);
-        if (tmp->priority + tmp->max_donate_delta - t->father->priority > l->max_donate_delta)
+        if (tmp->priority + tmp->max_donate_delta - t->father->priority > l->max_donate_delta) {
           l->max_donate_delta = tmp->priority + tmp->max_donate_delta - t->father->priority;
+        }
       }
     if (l->max_donate_delta > max_donate_delta) {
       max_donate_delta = l->max_donate_delta;
@@ -264,7 +265,6 @@ lock_acquire (struct lock *lock)
         lock->holder->max_donate_delta = delta;
         notify_donation (lock->holder);
       }
-      thread_sort_ready_list ();
     }
   }
 
@@ -310,6 +310,13 @@ lock_release (struct lock *lock)
   for (e = list_begin (&lock->donaters); e != list_end (&lock->donaters); e = list_next (e)) {
     list_entry (e, struct thread, donate_elem)->father = NULL;
   }
+  list_remove (&lock->elem);
+  lock->max_donate_delta = 0;
+  lock->holder = NULL;
+  while (!list_empty (&lock->donaters)) {
+    list_pop_front (&lock->donaters);
+  }
+  sema_up (&lock->semaphore);
   
   int max_donate_delta = 0;
   for (e = list_begin (&t->lock_list); e != list_end (&t->lock_list); e = list_next (e)) {
@@ -328,14 +335,6 @@ lock_release (struct lock *lock)
     t->priority_to_set = -1;
   }
 
-  list_remove (&lock->elem);
-  lock->max_donate_delta = 0;
-  lock->holder = NULL;
-  while (!list_empty (&lock->donaters)) {
-    list_pop_front (&lock->donaters);
-  }
-  sema_up (&lock->semaphore);
-  thread_sort_ready_list();
   thread_check_switch();
 }
 
@@ -438,8 +437,8 @@ cond_signal (struct condition *cond, struct lock *lock UNUSED)
       struct semaphore_elem *t = list_entry (e, struct semaphore_elem, elem);
       tmpp = thread_get_certain_priority(t->pthread);
       if (tmpp == maxp) {
-        sema_up (&list_entry (list_remove (&cond->waiters),
-                          struct semaphore_elem, elem)->semaphore);
+        list_remove (e);
+        sema_up (&t->semaphore);
         break;
       }
     }

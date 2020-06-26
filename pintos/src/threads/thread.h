@@ -4,7 +4,7 @@
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
-#include "threads/fixed-point.h"
+#include "threads/fixed_point.h"
 
 /* States in a thread's life cycle. */
 enum thread_status
@@ -149,7 +149,7 @@ typedef void thread_action_func (struct thread *t, void *aux);
 void thread_foreach (thread_action_func *, void *);
 
 void thread_sort_ready_list(void);
-void thread_insert_sorted_ready_list(struct list_elem*);
+void thread_insert_ready_list(struct list_elem*);
 
 int thread_get_priority (void);
 int thread_get_certain_priority (const struct thread *t);

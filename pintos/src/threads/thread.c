@@ -1,3 +1,17 @@
+/* 
+  Implementation Notes by fstqwq :
+
+  ready_list:
+  //    Every time we change ready list, we want to keep it sorted. 
+  //    Even it's hard to maintain, we assume that the list is sorted.
+  //    I have added is_sorted assertion in thread_check_switch ().
+
+  Just fuck it, sort every time.
+
+*/
+
+
+
 #include "threads/thread.h"
 #include "list.h"
 #include <debug.h>
@@ -207,6 +221,7 @@ thread_create (const char *name, int priority,
 
   /* Add to run queue. */
   thread_unblock (t);
+  thread_check_switch();
 
   return tid;
 }
@@ -244,15 +259,17 @@ thread_unblock (struct thread *t)
 
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
-  thread_insert_sorted_ready_list(&t->elem);
+  thread_insert_ready_list(&t->elem);
   t->status = THREAD_READY;
   intr_set_level (old_level);
 }
 
 void thread_check_switch() {
+  thread_sort_ready_list();
   if (thread_current () != idle_thread &&
-    !list_empty (&ready_list) &&
-    thread_get_priority () < thread_get_certain_priority (list_entry (list_begin (&ready_list), struct thread, elem))) {
+   !list_empty (&ready_list) &&
+   thread_get_priority () <
+   thread_get_certain_priority (list_entry (list_begin (&ready_list), struct thread, elem))) {
     thread_yield ();
   }
 }
@@ -323,7 +340,7 @@ thread_yield (void)
 
   old_level = intr_disable ();
   if (cur != idle_thread) 
-    thread_insert_sorted_ready_list (&cur->elem);
+    thread_insert_ready_list (&cur->elem);
   cur->status = THREAD_READY;
   schedule ();
   intr_set_level (old_level);
@@ -352,10 +369,10 @@ thread_sort_ready_list() {
   list_sort(&ready_list, thread_priority_greater, NULL);
 }
 
-/* Insert element to sorted ready list*/
+/* Insert element to ready list*/
 void
-thread_insert_sorted_ready_list(struct list_elem* elem) {
-    list_insert_ordered(&ready_list, elem, thread_priority_greater, NULL);
+thread_insert_ready_list(struct list_elem* elem) {
+    list_push_back(&ready_list, elem);
 }
 
 /* Sets the current thread's priority to NEW_PRIORITY. */
@@ -378,7 +395,7 @@ thread_set_priority (int new_priority)
       struct thread *tt = list_entry (e, struct thread, allelem);
       if (t == tt) {
         list_remove(e);
-        thread_insert_sorted_ready_list (&e);
+        thread_insert_ready_list (&e);
         break;
       }
     }
@@ -433,7 +450,6 @@ thread_update_load_avg(void) {
     ),
     60
   );
-
 }
 /* Returns the current thread's priority. */
 int
@@ -508,7 +524,6 @@ void thread_tick_events(bool a_second) {
       thread_update_load_avg();
       thread_foreach(thread_update_recent_cpu, NULL);
       thread_foreach(thread_update_priority, NULL);
-      thread_sort_ready_list();
     }
   }
   thread_foreach(thread_update_sleep, NULL);
@@ -664,8 +679,10 @@ next_thread_to_run (void)
 {
   if (list_empty (&ready_list))
     return idle_thread;
-  else
+  else {
+    thread_sort_ready_list();
     return list_entry (list_pop_front (&ready_list), struct thread, elem);
+  }
 }
 
 /* Completes a thread switch by activating the new thread's page

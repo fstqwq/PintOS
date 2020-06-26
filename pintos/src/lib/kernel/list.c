@@ -31,8 +31,6 @@
    elements allows us to do a little bit of checking on some
    operations, which can be valuable.) */
 
-static bool is_sorted (struct list_elem *a, struct list_elem *b,
-                       list_less_func *less, void *aux) UNUSED;
 
 /* Returns true if ELEM is a head, false otherwise. */
 static inline bool
@@ -338,7 +336,7 @@ list_reverse (struct list *list)
 
 /* Returns true only if the list elements A through B (exclusive)
    are in order according to LESS given auxiliary data AUX. */
-static bool
+bool
 is_sorted (struct list_elem *a, struct list_elem *b,
            list_less_func *less, void *aux)
 {
