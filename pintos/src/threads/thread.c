@@ -6,7 +6,9 @@
   //    Even it's hard to maintain, we assume that the list is sorted.
   //    I have added is_sorted assertion in thread_check_switch ().
 
-  Just fuck it, sort every time.
+  // Just fuck it, sort every time.
+
+  Just fuck it twice, and find minimum every time.
 
 */
 
@@ -265,11 +267,10 @@ thread_unblock (struct thread *t)
 }
 
 void thread_check_switch() {
-  thread_sort_ready_list();
   if (thread_current () != idle_thread &&
-   !list_empty (&ready_list) &&
+   !list_empty (&ready_list) && 
    thread_get_priority () <
-   thread_get_certain_priority (list_entry (list_begin (&ready_list), struct thread, elem))) {
+   thread_get_certain_priority (list_entry (thread_ready_list_get_min(), struct thread, elem))) {
     thread_yield ();
   }
 }
@@ -363,12 +364,13 @@ thread_foreach (thread_action_func *func, void *aux)
     }
 }
 
-/* Sort ready list */
-void 
-thread_sort_ready_list() {
-  list_sort(&ready_list, thread_priority_greater, NULL);
+/* Get highest priority in ready list */
+struct list_elem*
+thread_ready_list_get_min() {
+  ASSERT (! list_empty(&ready_list));
+  struct list_elem* e = list_min(&ready_list, thread_priority_greater, NULL);
+  return e;
 }
-
 /* Insert element to ready list*/
 void
 thread_insert_ready_list(struct list_elem* elem) {
@@ -680,8 +682,9 @@ next_thread_to_run (void)
   if (list_empty (&ready_list))
     return idle_thread;
   else {
-    thread_sort_ready_list();
-    return list_entry (list_pop_front (&ready_list), struct thread, elem);
+    struct list_elem* e = thread_ready_list_get_min();
+    list_remove(e);
+    return list_entry (e, struct thread, elem);
   }
 }
 

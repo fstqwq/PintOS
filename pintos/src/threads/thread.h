@@ -148,7 +148,7 @@ void thread_check_switch(void);
 typedef void thread_action_func (struct thread *t, void *aux);
 void thread_foreach (thread_action_func *, void *);
 
-void thread_sort_ready_list(void);
+struct list_elem* thread_ready_list_get_min(void);
 void thread_insert_ready_list(struct list_elem*);
 
 int thread_get_priority (void);
