@@ -31,11 +31,6 @@ Yuxuan Chen, Yonghao Zhuang for helping understanding code.
 Added to struct thread:
     int sleep_remain;                   /* Positive ; Time to sleep */
 
-Added to struct lock:
-    int max_donate_delta;       /* Max donate delta for holder */
-    struct list donaters;       /* List of donaters */
-    struct list_elem elem;      /* Element to present in list */
-
 ---- ALGORITHMS ----
 >> A2: Briefly describe what happens in a call to timer_sleep(),
 >> including the effects of the timer interrupt handler.
