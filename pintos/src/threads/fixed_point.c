@@ -17,7 +17,7 @@ void fixed32_print(struct fixed32 a) {
 }
 
 int32_t fixed32_trunc(struct fixed32 a) {
-  return a.num >> 14;
+  return a.num / FLOAT_POINT;
 }
 
 int32_t fixed32_round(struct fixed32 a) {

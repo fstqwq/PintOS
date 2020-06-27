@@ -90,12 +90,13 @@ struct thread
     char name[16];                      /* Name (for debugging purposes). */
     uint8_t *stack;                     /* Saved stack pointer. */
 
+    int priority;                       /* Priority. */
+    
    /* Elements added */
     int sleep_remain;                   /* Positive ; Time to sleep */
-    int priority;                       /* Priority. */
     /* mlfqs */
-    int nice;                           
-    struct fixed32 recent_cpu;
+    int nice;                           /* Nice value. */       
+    struct fixed32 recent_cpu;          /* Recent CPU. */
     /* end mlfqs */
 
     struct list lock_list;              /* Locks owned */
