@@ -222,7 +222,7 @@ syscall_read(struct intr_frame *f) {
 		else {
 			lock_acquire(&filesys_lock);
 			int ret = file_read(fd_e->ptr, buffer, size);
-			lock_acquire(&filesys_lock);
+			lock_release(&filesys_lock);
 			return ret;
 		}
 	}
