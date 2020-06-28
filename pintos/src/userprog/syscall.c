@@ -18,7 +18,6 @@ void*
 get_paddr(void *vaddr) {
 	void *ret;
 	if (!is_user_vaddr(vaddr) || !(ret = pagedir_get_page(thread_current()->pagedir, vaddr))) {
-//		printf("invalid vaddr!\n");
 		syscall_exit_helper(-1);
 		return 0;
 	}
@@ -28,7 +27,6 @@ get_paddr(void *vaddr) {
 bool
 is_valid_addr(void *addr) {
 	if (!is_user_vaddr(addr) || !pagedir_get_page(thread_current()->pagedir, addr)) {
-//		printf("invalid vaddr!\n");
 		syscall_exit_helper(-1);
 		return 0;
 	}
@@ -45,7 +43,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 {
 	is_valid_addr(f->esp);
 	int sysnum = *(int*)f->esp;
-//  printf ("system call %d!\n", sysnum);
+//  printf ("tid %d system call %d!\n", thread_current()->tid, sysnum);
   switch (sysnum) {
 	  case SYS_HALT: syscall_halt(); break;
 	  case SYS_EXIT: syscall_exit(f); break;
@@ -104,7 +102,6 @@ syscall_exec(struct intr_frame *f) {
 	struct file *fi = filesys_open(token);
 
 	if (fi == NULL) {
-//		printf("file not exist!");
 		lock_release(&filesys_lock);
 		return -1;
 	}
@@ -162,11 +159,7 @@ syscall_open(struct intr_frame *f) {
 	struct file *fi = filesys_open(file_name);
 	lock_release(&filesys_lock);
 
-//	printf("openaddr %x\n", fi);
-
-
 	if (fi == NULL) {
-//		printf("open file failed!");
 		return -1;
 	}
 	else {
@@ -175,7 +168,6 @@ syscall_open(struct intr_frame *f) {
 		struct thread *t = thread_current();
 		fd_e->fd = t->file_cnt++;
 		list_push_back(&t->files, &fd_e->elem);
-//		printf("fd = %d\n", fd_e->fd);
 		return fd_e->fd;
 	}
 }
@@ -225,12 +217,9 @@ syscall_read(struct intr_frame *f) {
 		if (fd_e == NULL)
 			return -1;
 		else {
-//			printf("addr = %x\n", fd_e->ptr);
 			lock_acquire(&filesys_lock);
 			int ret = file_read(fd_e->ptr, buffer, size);
 			lock_release(&filesys_lock);
-//			printf("addr = %x\n", fd_e->ptr);
-//			printf("read ret %d %buf = %s\n", ret, buffer);
 			return ret;
 		}
 	}
@@ -246,11 +235,7 @@ syscall_write(struct intr_frame *f) {
 	pop_stack(f->esp, &buffer, 6);
 	pop_stack(f->esp, &fd, 5);
 
-//	printf("fd = %d\n", fd);
-//	printf("buffer = %s\n", buffer);
-
 	if (!is_valid_addr(buffer)) {
-//		printf("fuck!\n");
 		return -1;
 	}
 
@@ -267,9 +252,6 @@ syscall_write(struct intr_frame *f) {
 			lock_acquire(&filesys_lock);
 			int ret = file_write(fd_e->ptr, buffer, size);
 			lock_release(&filesys_lock);
-//			printf("%x %x\n", fd_e->ptr, thread_current()->self);
-
-//			printf("write ret %d %buf = %s\n", ret, buffer);
 			return ret;
 		}
 	}

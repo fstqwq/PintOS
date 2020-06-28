@@ -57,8 +57,6 @@ process_execute (const char *file_name)
 	else {
 		/* Wait child thread running start_process */
 		sema_down(&current_thread->load_sema);
-//		printf("fuck!%d\n", thread_current()->magic);
-//		printf("testsize = %x\n", &(list_begin(&thread_current()->children)->next->next));
 		if (!current_thread->load_success)
 			return -1;
 	}
@@ -98,7 +96,6 @@ start_process (void *file_name_)
 	  argc++;
   }
   free(fn_cp);
-//  printf("argc = %d\n", argc);
 
   /* argv[?][...] */
 	int *argv = calloc(argc, sizeof(int));
@@ -143,10 +140,7 @@ start_process (void *file_name_)
 
 	if (!success)
 	  thread_exit();
-//	printf("qwq %x\n", current_thread->child_elem.next);
 	sema_up(&current_thread->parent->load_sema);
-
-//	printf("qwq %x\n", current_thread->child_elem.next);
 
 	/* Start the user process by simulating a return from an
 		 interrupt, implemented by intr_exit (in
@@ -172,27 +166,19 @@ process_wait (tid_t child_tid)
 {
 	struct thread *t = thread_current ();
 
-	//enum intr_level old_level = intr_disable();
-//	printf("testsize = %x\n", list_size(&thread_current()->children));
-
-//	printf("fuck!%x\n", &t->children);
 	struct child_process *ch = get_child_by_tid(&t->children, child_tid);
 
 	if (ch == NULL) {
-//		intr_set_level(old_level);
 		return -1;
 	}
-	if (t->wait_tid != -1) {
+	if (ch->waited) {
 		return -1;
 	}
-	else {
-		t->wait_tid = ch->tid;
-	}
-//	printf("chtid = %d\n", ch->tid);
-//	intr_set_level(old_level);
+	ch->waited = true;
+	t->wait_tid = ch->tid;
 	if (!ch->done)
 		sema_down(&t->wait_sema);
-//	printf("%s\n", "done!");
+	t->wait_tid = -1;
 
 	return ch->ret_status;
 }
@@ -204,7 +190,6 @@ process_exit (void)
 	struct thread *cur = thread_current ();
   uint32_t *pd;
 
-//  printf("fuck!\n");
   printf("%s: exit(%d)\n", cur->name, cur->ret_status);
 
   /* ??? */
