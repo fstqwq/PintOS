@@ -160,8 +160,9 @@ syscall_open(struct intr_frame *f) {
 	struct file *fi = filesys_open(file_name);
 	lock_release(&filesys_lock);
 
-	if (f == NULL) {
-		printf("open file failed!");
+
+	if (fi == NULL) {
+//		printf("open file failed!");
 		return -1;
 	}
 	else {
