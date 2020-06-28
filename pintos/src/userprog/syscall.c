@@ -45,7 +45,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 {
 	is_valid_addr(f->esp);
 	int sysnum = *(int*)f->esp;
-//  printf ("system call %d!\n", sysnum);
+  printf ("system call %d!\n", sysnum);
   switch (sysnum) {
 	  case SYS_HALT: syscall_halt(); break;
 	  case SYS_EXIT: syscall_exit(f); break;
@@ -90,19 +90,21 @@ int
 syscall_exec(struct intr_frame *f) {
 	char *file_name;
 	pop_stack(f->esp, &file_name, 1);
-	if (!is_valid_addr(file_name))
+
+	if (!is_valid_addr(file_name)) {
 		return -1;
+	}
 	lock_acquire(&filesys_lock);
 
 	char *fn_cp = malloc(strlen(file_name) + 1);
 	char *token, *save_ptr;
 	strlcpy(fn_cp, file_name, strlen(file_name) + 1);
-	strtok_r(token, " ", &save_ptr);
+	token = strtok_r(fn_cp, " ", &save_ptr);
 
 	struct file *fi = filesys_open(token);
 
 	if (fi == NULL) {
-		printf("file not exist!");
+//		printf("file not exist!");
 		lock_release(&filesys_lock);
 		return -1;
 	}

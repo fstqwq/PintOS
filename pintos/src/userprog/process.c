@@ -30,29 +30,32 @@ tid_t
 process_execute (const char *file_name) 
 {
 	char *fn_copy;
-  tid_t tid;
+	tid_t tid;
 
 	/* Make a copy of FILE_NAME.
 		 Otherwise there's a race between the caller and load(). */
-  fn_copy = palloc_get_page (0);
-  if (fn_copy == NULL)
-    return TID_ERROR;
-  strlcpy (fn_copy, file_name, PGSIZE);
+	fn_copy = palloc_get_page (0);
+	if (fn_copy == NULL) {
+		return TID_ERROR;
+	}
+	strlcpy (fn_copy, file_name, PGSIZE);
 
-  /* Get the real name */
-	char *save_ptr;
-	file_name = strtok_r(file_name, " ", &save_ptr);
+	char *fn_cp = malloc(strlen(file_name)+1);
+	strlcpy (fn_cp, file_name, strlen(file_name)+1);
 
-  /* Create a new thread to execute FILE_NAME. */
+	/* Get the real name */
+	char *token, *save_ptr;
+	token = strtok_r(fn_cp, " ", &save_ptr);
+
+	/* Create a new thread to execute FILE_NAME. */
   struct thread *current_thread = thread_current();
-  tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
+	tid = thread_create (token, PRI_DEFAULT, start_process, fn_copy);
 
-	if (tid == TID_ERROR)
-    palloc_free_page (fn_copy);
+	if (tid == TID_ERROR) {
+		palloc_free_page (fn_copy);
+	}
 	else {
 		/* Wait child thread running start_process */
-//		printf("fuck!%d\n", thread_current()->magic);
-//		printf("testsize = %x\n", list_begin(&thread_current()->children)->next);
 		sema_down(&current_thread->load_sema);
 //		printf("fuck!%d\n", thread_current()->magic);
 //		printf("testsize = %x\n", &(list_begin(&thread_current()->children)->next->next));
@@ -139,6 +142,7 @@ start_process (void *file_name_)
 	  thread_exit();
 //	printf("qwq %x\n", current_thread->child_elem.next);
 	sema_up(&current_thread->parent->load_sema);
+
 //	printf("qwq %x\n", current_thread->child_elem.next);
 
 	/* Start the user process by simulating a return from an
