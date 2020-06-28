@@ -87,7 +87,7 @@ struct lock filesys_lock;
    ready state is on the run queue, whereas only a thread in the
    blocked state is on a semaphore wait list. */
 
-/*add by yveh */
+/* yveh */
 struct child_process {
 	tid_t tid;
 	int ret_status;
@@ -95,6 +95,7 @@ struct child_process {
 	bool waited;
 	struct list_elem elem;
 };
+/* end yveh */
 
 struct thread
   {
@@ -130,7 +131,7 @@ struct thread
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
 
-		/* Add by yveh */
+		/* yveh */
 		int ret_status, file_cnt, wait_tid, child_depth;
 		struct semaphore load_sema, wait_sema;
 		bool load_success;
@@ -138,6 +139,7 @@ struct thread
 		struct list children;
 		struct file *self;
 		struct list files;
+		/* end yveh */
 #endif
 
     /* Owned by thread.c. */

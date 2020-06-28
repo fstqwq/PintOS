@@ -118,9 +118,11 @@ thread_init (void)
   list_init (&ready_list);
   list_init (&all_list);
 
+  /* yveh */
 #ifdef USERPROG
 	lock_init(&filesys_lock);
 #endif
+	/* end yveh */
 
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
@@ -211,6 +213,8 @@ thread_create (const char *name, int priority,
   /* Initialize thread. */
   init_thread (t, name, priority);
   tid = t->tid = allocate_tid ();
+
+  /* yveh */
 #ifdef USERPROG
 #define CHILD_DEPTH_LIM 40
   if (t->child_depth >= CHILD_DEPTH_LIM)
@@ -222,6 +226,7 @@ thread_create (const char *name, int priority,
   ch->waited = false;
 	list_push_back(&running_thread()->children, &ch->elem);
 #endif
+	/* end yveh */
 
   /* Stack frame for kernel_thread(). */
   kf = alloc_frame (t, sizeof *kf);
@@ -331,7 +336,8 @@ void
 thread_exit (void) 
 {
   ASSERT (!intr_context ());
-
+#ifdef USERPROG
+  /* yveh */
 	enum intr_level old_level = intr_disable();
 	struct thread *t = thread_current();
 	if (t->parent->wait_tid == t->tid) {
@@ -340,9 +346,7 @@ thread_exit (void)
 	struct child_process *ch = get_child_by_tid(&t->parent->children, t->tid);
 	ch->done = true;
 	intr_set_level(old_level);
-
-
-#ifdef USERPROG
+	/* end yveh */
   process_exit ();
 #endif
 
@@ -679,7 +683,7 @@ init_thread (struct thread *t, const char *name, int priority)
 
   t->magic = THREAD_MAGIC;
 
-  /* init extra element in USERPROG */
+  /* yveh */
 #ifdef USERPROG
 	t->ret_status = -1;
   t->load_success = false;
@@ -693,6 +697,7 @@ init_thread (struct thread *t, const char *name, int priority)
   list_init(&t->files);
   list_init(&t->children);
 #endif
+  /* end yveh */
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
@@ -819,7 +824,6 @@ uint32_t thread_stack_ofs = offsetof (struct thread, stack);
 struct child_process *
 get_child_by_tid(struct list* children, tid_t tid) {
 //	ASSERT (intr_get_level () == INTR_OFF);
-
 	struct child_process *ch;
 	for (struct list_elem *e = list_begin(children); e != list_end(children); e = list_next(e)) {
 		ch = list_entry(e, struct child_process, elem);
