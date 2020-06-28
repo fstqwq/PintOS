@@ -296,8 +296,10 @@ thread_exit (void)
 
 	enum intr_level old_level = intr_disable();
 	struct thread *t = thread_current();
-	if (t->parent->wait_tid == t->tid)
+	if (t->parent->wait_tid == t->tid) {
+		t->parent->wait_tid = -1;
 		sema_up(&t->parent->wait_sema);
+	}
 	struct child_process *ch = get_child_by_tid(&t->parent->children, t->tid);
 	ch->done = true;
 	intr_set_level(old_level);

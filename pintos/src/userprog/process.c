@@ -179,7 +179,12 @@ process_wait (tid_t child_tid)
 //		intr_set_level(old_level);
 		return -1;
 	}
-	t->wait_tid = ch->tid;
+	if (t->wait_tid != -1) {
+		return -1;
+	}
+	else {
+		t->wait_tid = ch->tid;
+	}
 //	printf("chtid = %d\n", ch->tid);
 //	intr_set_level(old_level);
 	if (!ch->done)
