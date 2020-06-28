@@ -196,10 +196,14 @@ process_exit (void)
 	struct thread *cur = thread_current ();
   uint32_t *pd;
 
+//  printf("fuck!\n");
   printf("%s: exit(%d)\n", cur->name, cur->ret_status);
 
-  /* Close files */
-	lock_acquire(&filesys_lock);
+  /* ??? */
+	if (!lock_held_by_current_thread(&filesys_lock))
+		lock_acquire(&filesys_lock);
+
+	/* Close files */
 	struct fd_t *entry;
 	while (!list_empty(&cur->files)) {
 		entry = list_entry (list_pop_front(&cur->files), struct fd_t, elem);

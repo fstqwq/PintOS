@@ -45,7 +45,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 {
 	is_valid_addr(f->esp);
 	int sysnum = *(int*)f->esp;
-  printf ("system call %d!\n", sysnum);
+//  printf ("system call %d!\n", sysnum);
   switch (sysnum) {
 	  case SYS_HALT: syscall_halt(); break;
 	  case SYS_EXIT: syscall_exit(f); break;
