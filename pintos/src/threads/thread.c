@@ -1,4 +1,21 @@
+/* 
+  Implementation Notes by fstqwq :
+
+  ready_list:
+  //    Every time we change ready list, we want to keep it sorted. 
+  //    Even it's hard to maintain, we assume that the list is sorted.
+  //    I have added is_sorted assertion in thread_check_switch ().
+
+  // Just fuck it, sort every time.
+
+  Just fuck it twice, and find minimum every time.
+
+*/
+
+
+
 #include "threads/thread.h"
+#include "list.h"
 #include <debug.h>
 #include <stddef.h>
 #include <random.h>
@@ -19,6 +36,9 @@
    Used to detect stack overflow.  See the big comment at the top
    of thread.h for details. */
 #define THREAD_MAGIC 0xcd6abf4b
+
+
+static struct fixed32 load_avg;
 
 /* List of processes in THREAD_READY state, that is, processes
    that are ready to run but not actually running. */
@@ -61,16 +81,23 @@ bool thread_mlfqs;
 
 static void kernel_thread (thread_func *, void *aux);
 
-static void idle (void *aux UNUSED);
+static void idle (void *aux);
 static struct thread *running_thread (void);
 static struct thread *next_thread_to_run (void);
 static void init_thread (struct thread *, const char *name, int priority);
-static bool is_thread (struct thread *) UNUSED;
+static bool is_thread (struct thread *);
 static void *alloc_frame (struct thread *, size_t size);
 static void schedule (void);
 void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
+<<<<<<< HEAD
 struct child_process *get_child_by_tid(struct list* children, tid_t tid);
+=======
+static void thread_update_priority(struct thread*, void*);
+static void thread_update_sleep(struct thread*, void*);
+static void thread_update_load_avg(void);
+static void thread_update_recent_cpu(struct thread*, void*);
+>>>>>>> 48591fe077787054e666868a063bbce36686fa36
 
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
@@ -93,11 +120,14 @@ thread_init (void)
   lock_init (&tid_lock);
   list_init (&ready_list);
   list_init (&all_list);
+<<<<<<< HEAD
 
 #ifdef USERPROG
 	lock_init(&filesys_lock);
 #endif
 
+=======
+>>>>>>> 48591fe077787054e666868a063bbce36686fa36
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
   init_thread (initial_thread, "main", PRI_DEFAULT);
@@ -216,6 +246,7 @@ thread_create (const char *name, int priority,
 
   /* Add to run queue. */
   thread_unblock (t);
+  thread_check_switch();
 
 	return tid;
 }
@@ -253,9 +284,18 @@ thread_unblock (struct thread *t)
 
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
-  list_push_back (&ready_list, &t->elem);
+  thread_insert_ready_list(&t->elem);
   t->status = THREAD_READY;
   intr_set_level (old_level);
+}
+
+void thread_check_switch() {
+  if (thread_current () != idle_thread &&
+   !list_empty (&ready_list) && 
+   thread_get_priority () <
+   thread_get_certain_priority (list_entry (thread_ready_list_get_min(), struct thread, elem))) {
+    thread_yield ();
+  }
 }
 
 /* Returns the name of the running thread. */
@@ -334,7 +374,7 @@ thread_yield (void)
 
   old_level = intr_disable ();
   if (cur != idle_thread) 
-    list_push_back (&ready_list, &cur->elem);
+    thread_insert_ready_list (&cur->elem);
   cur->status = THREAD_READY;
   schedule ();
   intr_set_level (old_level);
@@ -357,50 +397,185 @@ thread_foreach (thread_action_func *func, void *aux)
     }
 }
 
+/* Get highest priority in ready list */
+struct list_elem*
+thread_ready_list_get_min() {
+  ASSERT (! list_empty(&ready_list));
+  struct list_elem* e = list_min(&ready_list, thread_priority_greater, NULL);
+  return e;
+}
+/* Insert element to ready list*/
+void
+thread_insert_ready_list(struct list_elem* elem) {
+    list_push_back(&ready_list, elem);
+}
+
 /* Sets the current thread's priority to NEW_PRIORITY. */
 void
 thread_set_priority (int new_priority) 
 {
-  thread_current ()->priority = new_priority;
+  if (thread_mlfqs) {
+    return;
+  }
+  struct thread* t = thread_current ();
+  if (t->max_donate_delta) {
+    // Delay to set
+    t->priority_to_set = new_priority;
+  }
+  else {
+    t->priority = new_priority;
+    struct list_elem *e;
+    int ready_count = 0;
+    for (e = list_begin (&ready_list); e != list_end (&ready_list); e = list_next (e)) {
+      struct thread *tt = list_entry (e, struct thread, allelem);
+      if (t == tt) {
+        list_remove(e);
+        thread_insert_ready_list (&e);
+        break;
+      }
+    }
+    thread_check_switch();
+  }  
 }
 
-/* Returns the current thread's priority. */
-int
-thread_get_priority (void) 
-{
-  return thread_current ()->priority;
+/* Update priority */
+static void
+thread_update_priority(struct thread* t, void* aux UNUSED){
+  if(t != idle_thread) {
+    t->priority = PRI_MAX
+                - fixed32_trunc(fixed32_div_int(t->recent_cpu, 4))
+                - t->nice * 2;
+  }
 }
+
 
 /* Sets the current thread's nice value to NICE. */
 void
-thread_set_nice (int nice UNUSED) 
+thread_set_nice (int nice) 
 {
-  /* Not yet implemented. */
+  thread_current()->nice = nice;
+  if (thread_mlfqs) {
+    thread_update_priority(thread_current(), NULL);
+  }
 }
 
 /* Returns the current thread's nice value. */
 int
 thread_get_nice (void) 
 {
-  /* Not yet implemented. */
-  return 0;
+  return thread_current()->nice;
+}
+
+/* Upload load_avg = 59/60 * load_avg + 1/60 * ready_thread */
+static void
+thread_update_load_avg(void) {
+  ASSERT(thread_mlfqs);
+  struct list_elem *e;
+  int ready_count = 0;
+  for (e = list_begin (&all_list); e != list_end (&all_list); e = list_next (e)) {
+    struct thread *t = list_entry (e, struct thread, allelem);
+    if ((t->status == THREAD_RUNNING || t->status == THREAD_READY) && t != idle_thread) {
+      ready_count++;
+    }
+  }
+  load_avg = fixed32_div_int(
+    fixed32_add_int(
+      fixed32_mul_int(load_avg, 59),
+      ready_count
+    ),
+    60
+  );
+}
+/* Returns the current thread's priority. */
+int
+thread_get_priority (void)
+{
+  return thread_get_certain_priority (thread_current ());
+}
+
+/* Returns the certain thread's priority. */
+int
+thread_get_certain_priority (const struct thread* t)
+{
+  if (thread_mlfqs) {
+    return t->priority;
+  } else {
+    return t->max_donate_delta + t->priority;
+  }
 }
 
 /* Returns 100 times the system load average. */
 int
 thread_get_load_avg (void) 
 {
-  /* Not yet implemented. */
-  return 0;
+  ASSERT(thread_mlfqs);
+  return fixed32_round(fixed32_mul_int(load_avg, 100));
+}
+
+/* Add recent_cpu of the running thread by 1 per second */
+void thread_add_recent_cpu(void)
+{
+  ASSERT(thread_mlfqs);
+  struct thread* t = thread_current();
+  if (t != idle_thread) {
+    t->recent_cpu = fixed32_add_int(t->recent_cpu, 1);
+  }
+  thread_update_priority(t, NULL);
+}
+
+/* recent_cpu = recent_cpu * (load_avg * 2 / (load_avg * 2 + 1)) + nice */
+static void
+thread_update_recent_cpu(struct thread *t, void* aux UNUSED)
+{
+  ASSERT(thread_mlfqs);
+  int load_avg_2 = thread_get_load_avg() * 2;
+  t->recent_cpu = fixed32_add_int(
+                                fixed32_mul(fixed32_div_int_int(load_avg_2, load_avg_2 + 100), t->recent_cpu),
+                                t->nice
+                                );
 }
 
 /* Returns 100 times the current thread's recent_cpu value. */
 int
 thread_get_recent_cpu (void) 
 {
-  /* Not yet implemented. */
-  return 0;
+  ASSERT(thread_mlfqs);
+  return fixed32_trunc(fixed32_mul_int(thread_current()->recent_cpu, 100));
 }
+
+/* Cmp function for priority */
+bool
+thread_priority_greater (const struct list_elem *a_, const struct list_elem *b_, void *aux UNUSED)
+{
+  return thread_get_certain_priority (list_entry (a_, struct thread, elem))
+       > thread_get_certain_priority (list_entry (b_, struct thread, elem));
+}
+
+/* Handle timer ticks */
+void thread_tick_events(bool a_second) {
+  if (thread_mlfqs) {
+    thread_add_recent_cpu();
+    if (a_second) {
+      thread_update_load_avg();
+      thread_foreach(thread_update_recent_cpu, NULL);
+      thread_foreach(thread_update_priority, NULL);
+    }
+  }
+  thread_foreach(thread_update_sleep, NULL);
+}
+
+/* Update sleep info */
+static void
+thread_update_sleep(struct thread* t, void* aux UNUSED)
+{
+  ASSERT (is_thread(t));
+  if (t->sleep_remain > 0) {
+    if (!--(t->sleep_remain)) {
+      thread_unblock (t);
+    }
+  }
+}
+
 
 /* Idle thread.  Executes when no other thread is ready to run.
 
@@ -412,7 +587,7 @@ thread_get_recent_cpu (void)
    ready list.  It is returned by next_thread_to_run() as a
    special case when the ready list is empty. */
 static void
-idle (void *idle_started_ UNUSED) 
+idle (void *idle_started_) 
 {
   struct semaphore *idle_started = idle_started_;
   idle_thread = thread_current ();
@@ -442,7 +617,7 @@ idle (void *idle_started_ UNUSED)
 
 /* Function used as the basis for a kernel thread. */
 static void
-kernel_thread (thread_func *function, void *aux) 
+kernel_thread (thread_func *function, void *aux UNUSED) 
 {
   ASSERT (function != NULL);
 
@@ -469,6 +644,9 @@ running_thread (void)
 static bool
 is_thread (struct thread *t)
 {
+  if (!(t != NULL && t->magic == THREAD_MAGIC)) {
+    printf("is thread failed : %u", t);
+  }
   return t != NULL && t->magic == THREAD_MAGIC;
 }
 
@@ -488,6 +666,23 @@ init_thread (struct thread *t, const char *name, int priority)
   strlcpy (t->name, name, sizeof t->name);
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
+/* fstqwq */
+  t->sleep_remain = 0;
+
+  if (thread_mlfqs) {
+    t->nice = 0;
+    t->recent_cpu = fixed32_init(0);
+    t->priority = 0;
+  }
+
+  list_init (&t->lock_list);
+  list_init (&t->donate_elem);
+  t->priority_to_set = -1;
+  t->max_donate_delta = 0;
+  t->father = 0;
+
+/* end fstqwq */
+
   t->magic = THREAD_MAGIC;
 
   /* init extra element in USERPROG */
@@ -533,8 +728,11 @@ next_thread_to_run (void)
 {
   if (list_empty (&ready_list))
     return idle_thread;
-  else
-    return list_entry (list_pop_front (&ready_list), struct thread, elem);
+  else {
+    struct list_elem* e = thread_ready_list_get_min();
+    list_remove(e);
+    return list_entry (e, struct thread, elem);
+  }
 }
 
 /* Completes a thread switch by activating the new thread's page

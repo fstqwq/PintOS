@@ -137,19 +137,23 @@ pintos_init (void)
     static char cmd[MAX_CMD_LENGTH];
     int failed_cnt = 0;
     do {
+      printf("Pintakina$ ");
       input_getline (cmd, MAX_CMD_LENGTH);
+      bool failed = false;
       if (strcmp(cmd, "whoami") == 0) {
         puts ("I am Pintakina!");
       } else if (strcmp(cmd, "exit") == 0){
         shutdown_configure (SHUTDOWN_POWER_OFF);
         break;
       } else if (strcmp(cmd, "") != 0){
+        failed = true;
         failed_cnt ++;
         int i;
-        for (i = 0; i < failed_cnt; i++) {
-          putchar ('?');
-        }
+        for (i = 0; i < failed_cnt; i++) putchar ('?');
         putchar ('\n');
+      }
+      if (!failed) {
+        failed_cnt = 0;
       }
     } while (true);
   }
