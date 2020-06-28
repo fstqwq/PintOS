@@ -18,7 +18,7 @@ void*
 get_paddr(void *vaddr) {
 	void *ret;
 	if (!is_user_vaddr(vaddr) || !(ret = pagedir_get_page(thread_current()->pagedir, vaddr))) {
-		printf("invalid vaddr!\n");
+//		printf("invalid vaddr!\n");
 		syscall_exit_helper(-1);
 		return 0;
 	}
@@ -27,8 +27,8 @@ get_paddr(void *vaddr) {
 
 bool
 is_valid_addr(void *addr) {
-	if (!is_user_vaddr(addr)) {
-		printf("invalid vaddr!\n");
+	if (!is_user_vaddr(addr) || !pagedir_get_page(thread_current()->pagedir, addr)) {
+//		printf("invalid vaddr!\n");
 		syscall_exit_helper(-1);
 		return 0;
 	}
