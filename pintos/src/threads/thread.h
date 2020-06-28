@@ -4,6 +4,7 @@
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
+#include "synch.h"
 
 /* States in a thread's life cycle. */
 enum thread_status
@@ -23,6 +24,10 @@ typedef int tid_t;
 #define PRI_MIN 0                       /* Lowest priority. */
 #define PRI_DEFAULT 31                  /* Default priority. */
 #define PRI_MAX 63                      /* Highest priority. */
+
+#ifdef USERPROG
+struct lock filesys_lock;
+#endif
 
 /* A kernel thread or user process.
 
@@ -80,6 +85,15 @@ typedef int tid_t;
    only because they are mutually exclusive: only a thread in the
    ready state is on the run queue, whereas only a thread in the
    blocked state is on a semaphore wait list. */
+
+/*add by yveh */
+struct child_process {
+	tid_t tid;
+	int ret_status;
+	bool done;
+	struct list_elem elem;
+};
+
 struct thread
   {
     /* Owned by thread.c. */
@@ -96,6 +110,15 @@ struct thread
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
+
+		/* Add by yveh */
+		int ret_status, file_cnt, wait_tid;
+		struct semaphore load_sema, wait_sema;
+		bool load_success;
+		struct thread *parent;
+		struct list children;
+//		struct file *self;
+		struct list files;
 #endif
 
     /* Owned by thread.c. */

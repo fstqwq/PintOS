@@ -8,6 +8,7 @@
 #include "userprog/gdt.h"
 #include "userprog/pagedir.h"
 #include "userprog/tss.h"
+#include "userprog/syscall.h"
 #include "filesys/directory.h"
 #include "filesys/file.h"
 #include "filesys/filesys.h"
@@ -28,21 +29,38 @@ static bool load (const char *cmdline, void (**eip) (void), void **esp);
 tid_t
 process_execute (const char *file_name) 
 {
-  char *fn_copy;
+	char *fn_copy;
   tid_t tid;
 
-  /* Make a copy of FILE_NAME.
-     Otherwise there's a race between the caller and load(). */
+	/* Make a copy of FILE_NAME.
+		 Otherwise there's a race between the caller and load(). */
   fn_copy = palloc_get_page (0);
   if (fn_copy == NULL)
     return TID_ERROR;
   strlcpy (fn_copy, file_name, PGSIZE);
 
+  /* Get the real name */
+	char *save_ptr;
+	file_name = strtok_r(file_name, " ", &save_ptr);
+
   /* Create a new thread to execute FILE_NAME. */
+  struct thread *current_thread = thread_current();
   tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
-  if (tid == TID_ERROR)
-    palloc_free_page (fn_copy); 
-  return tid;
+
+	if (tid == TID_ERROR)
+    palloc_free_page (fn_copy);
+	else {
+		/* Wait child thread running start_process */
+//		printf("fuck!%d\n", thread_current()->magic);
+//		printf("testsize = %x\n", list_begin(&thread_current()->children)->next);
+		sema_down(&current_thread->load_sema);
+//		printf("fuck!%d\n", thread_current()->magic);
+//		printf("testsize = %x\n", &(list_begin(&thread_current()->children)->next->next));
+		if (!current_thread->load_success)
+			return -1;
+	}
+
+	return tid;
 }
 
 /* A thread function that loads a user process and starts it
@@ -59,19 +77,76 @@ start_process (void *file_name_)
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
-  success = load (file_name, &if_.eip, &if_.esp);
 
-  /* If load failed, quit. */
-  palloc_free_page (file_name);
-  if (!success) 
-    thread_exit ();
 
-  /* Start the user process by simulating a return from an
-     interrupt, implemented by intr_exit (in
-     threads/intr-stubs.S).  Because intr_exit takes all of its
-     arguments on the stack in the form of a `struct intr_frame',
-     we just point the stack pointer (%esp) to our stack frame
-     and jump to it. */
+	char *fn_cp = malloc(strlen(file_name) + 1);
+	strlcpy (fn_cp, file_name, strlen(file_name) + 1);
+
+	char *token, *save_ptr;
+	token = strtok_r(fn_cp, " ", &save_ptr);
+
+  success = load (token, &if_.eip, &if_.esp);
+  /* calc argc */
+  int argc = 0;
+  for (; token != NULL; token = strtok_r(NULL, " ", &save_ptr)) {
+	  argc++;
+  }
+  free(fn_cp);
+//  printf("argc = %d\n", argc);
+
+  /* argv[?][...] */
+	int *argv = calloc(argc, sizeof(int));
+	argc = 0;
+	for (token = strtok_r(file_name, " ", &save_ptr); token != NULL; token = strtok_r(NULL, " ", &save_ptr)) {
+		if_.esp -= strlen(token) + 1;
+		memcpy(if_.esp, token, strlen(token) + 1);
+		argv[argc++] = if_.esp;
+	}
+
+	/* Word Align */
+#define WORD_SIZE 4
+	if_.esp -= ((unsigned)if_.esp % WORD_SIZE);
+
+	/* argv[?] */
+	if_.esp -= sizeof(int);
+	*(int*)if_.esp = 0;
+	for(int i = argc - 1; i >= 0; i--) {
+		if_.esp -= sizeof(int);
+		memcpy(if_.esp, &argv[i], sizeof(int));
+	}
+
+	/* argv */
+	int tmp = if_.esp;
+	if_.esp -= sizeof(int);
+	memcpy(if_.esp, &tmp, sizeof(int));
+
+	/* argc */
+	if_.esp -= sizeof(int);
+	memcpy(if_.esp, &argc, sizeof(int));
+
+	/* Return Address */
+	if_.esp -= sizeof(int);
+	*(int*)if_.esp = 0;
+
+
+	/* If load failed, quit. */
+	palloc_free_page (file_name);
+
+	struct thread * current_thread = thread_current();
+	current_thread->parent->load_success = success;
+
+	if (!success)
+	  thread_exit();
+//	printf("qwq %x\n", current_thread->child_elem.next);
+	sema_up(&current_thread->parent->load_sema);
+//	printf("qwq %x\n", current_thread->child_elem.next);
+
+	/* Start the user process by simulating a return from an
+		 interrupt, implemented by intr_exit (in
+		 threads/intr-stubs.S).  Because intr_exit takes all of its
+		 arguments on the stack in the form of a `struct intr_frame',
+		 we just point the stack pointer (%esp) to our stack frame
+		 and jump to it. */
   asm volatile ("movl %0, %%esp; jmp intr_exit" : : "g" (&if_) : "memory");
   NOT_REACHED ();
 }
@@ -86,17 +161,58 @@ start_process (void *file_name_)
    This function will be implemented in problem 2-2.  For now, it
    does nothing. */
 int
-process_wait (tid_t child_tid UNUSED) 
+process_wait (tid_t child_tid)
 {
-  return -1;
+	struct thread *t = thread_current ();
+
+	//enum intr_level old_level = intr_disable();
+//	printf("testsize = %x\n", list_size(&thread_current()->children));
+
+//	printf("fuck!%x\n", &t->children);
+	struct child_process *ch = get_child_by_tid(&t->children, child_tid);
+
+	if (ch == NULL) {
+//		intr_set_level(old_level);
+		return -1;
+	}
+	t->wait_tid = ch->tid;
+//	printf("chtid = %d\n", ch->tid);
+//	intr_set_level(old_level);
+	if (!ch->done)
+		sema_down(&t->wait_sema);
+//	printf("%s\n", "done!");
+
+	return ch->ret_status;
 }
 
 /* Free the current process's resources. */
 void
 process_exit (void)
 {
-  struct thread *cur = thread_current ();
+	struct thread *cur = thread_current ();
   uint32_t *pd;
+
+  printf("%s: exit(%d)\n", cur->name, cur->ret_status);
+
+  /* Close files */
+	lock_acquire(&filesys_lock);
+	struct fd_t *entry;
+	while (!list_empty(&cur->files)) {
+		entry = list_entry (list_pop_front(&cur->files), struct fd_t, elem);
+		file_close(entry->ptr);
+		list_remove(&entry->elem);
+		free(entry);
+	}
+
+//	file_close(cur->self);
+	lock_release(&filesys_lock);
+
+
+	/* delete children list */
+	while (!list_empty(&cur->children)) {
+		struct child_process *entry = list_entry(list_pop_front(&cur->children), struct child_process, elem);
+		free(entry);
+	}
 
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
@@ -309,6 +425,8 @@ load (const char *file_name, void (**eip) (void), void **esp)
   *eip = (void (*) (void)) ehdr.e_entry;
 
   success = true;
+
+//  thread_current()->self = file;
 
  done:
   /* We arrive here whether the load is successful or not. */
