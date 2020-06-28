@@ -90,14 +90,11 @@ static void *alloc_frame (struct thread *, size_t size);
 static void schedule (void);
 void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
-<<<<<<< HEAD
 struct child_process *get_child_by_tid(struct list* children, tid_t tid);
-=======
 static void thread_update_priority(struct thread*, void*);
 static void thread_update_sleep(struct thread*, void*);
 static void thread_update_load_avg(void);
 static void thread_update_recent_cpu(struct thread*, void*);
->>>>>>> 48591fe077787054e666868a063bbce36686fa36
 
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
@@ -120,14 +117,11 @@ thread_init (void)
   lock_init (&tid_lock);
   list_init (&ready_list);
   list_init (&all_list);
-<<<<<<< HEAD
 
 #ifdef USERPROG
 	lock_init(&filesys_lock);
 #endif
 
-=======
->>>>>>> 48591fe077787054e666868a063bbce36686fa36
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
   init_thread (initial_thread, "main", PRI_DEFAULT);
