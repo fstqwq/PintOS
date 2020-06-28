@@ -188,10 +188,14 @@ thread_create (const char *name, int priority,
   init_thread (t, name, priority);
   tid = t->tid = allocate_tid ();
 #ifdef USERPROG
+#define CHILD_DEPTH_LIM 40
+  if (t->child_depth >= CHILD_DEPTH_LIM)
+  	return TID_ERROR;
 	struct child_process *ch = malloc(sizeof(*ch));
   ch->tid = t->tid;
   ch->ret_status = t->ret_status;
   ch->done = false;
+  ch->waited = false;
 	list_push_back(&running_thread()->children, &ch->elem);
 #endif
 
@@ -297,14 +301,12 @@ thread_exit (void)
 	enum intr_level old_level = intr_disable();
 	struct thread *t = thread_current();
 	if (t->parent->wait_tid == t->tid) {
-		t->parent->wait_tid = -1;
 		sema_up(&t->parent->wait_sema);
 	}
 	struct child_process *ch = get_child_by_tid(&t->parent->children, t->tid);
 	ch->done = true;
 	intr_set_level(old_level);
 
-//	printf("wait %d cur %d\n", t->parent->wait_tid, t->tid);
 
 #ifdef USERPROG
   process_exit ();
@@ -497,7 +499,8 @@ init_thread (struct thread *t, const char *name, int priority)
   t->wait_tid = -1;
   t->file_cnt = 2;
   t->parent = running_thread();
-//  t->self = NULL;
+  t->child_depth = t->parent->tid == 0 ? 0 : t->parent->child_depth + 1;
+  t->self = NULL;
   list_init(&t->files);
   list_init(&t->children);
 #endif
@@ -625,13 +628,9 @@ struct child_process *
 get_child_by_tid(struct list* children, tid_t tid) {
 //	ASSERT (intr_get_level () == INTR_OFF);
 
-//	printf("tid = %d\n", tid);
 	struct child_process *ch;
-//	printf("size = %x\n", list_size(children));
 	for (struct list_elem *e = list_begin(children); e != list_end(children); e = list_next(e)) {
-//		printf("enext = %x\n", e->next);
 		ch = list_entry(e, struct child_process, elem);
-//		printf("fuck!tid = %d\n", ch->tid);
 		if (ch->tid == tid)
 			return ch;
 	}

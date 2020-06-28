@@ -91,6 +91,7 @@ struct child_process {
 	tid_t tid;
 	int ret_status;
 	bool done;
+	bool waited;
 	struct list_elem elem;
 };
 
@@ -112,12 +113,12 @@ struct thread
     uint32_t *pagedir;                  /* Page directory. */
 
 		/* Add by yveh */
-		int ret_status, file_cnt, wait_tid;
+		int ret_status, file_cnt, wait_tid, child_depth;
 		struct semaphore load_sema, wait_sema;
 		bool load_success;
 		struct thread *parent;
 		struct list children;
-//		struct file *self;
+		struct file *self;
 		struct list files;
 #endif
 
