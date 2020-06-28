@@ -88,8 +88,11 @@ start_process (void *file_name_)
 	char *token, *save_ptr;
 	token = strtok_r(fn_cp, " ", &save_ptr);
 
-  success = load (token, &if_.eip, &if_.esp);
-  /* calc argc */
+
+
+	success = load (token, &if_.eip, &if_.esp);
+
+	/* calc argc */
   int argc = 0;
   for (; token != NULL; token = strtok_r(NULL, " ", &save_ptr)) {
 	  argc++;
@@ -209,6 +212,8 @@ process_exit (void)
 		lock_acquire(&filesys_lock);
 
 	/* Close files */
+	file_close(cur->self);
+
 	struct fd_t *entry;
 	while (!list_empty(&cur->files)) {
 		entry = list_entry (list_pop_front(&cur->files), struct fd_t, elem);
@@ -217,7 +222,6 @@ process_exit (void)
 		free(entry);
 	}
 
-//	file_close(cur->self);
 	lock_release(&filesys_lock);
 
 
@@ -344,6 +348,8 @@ load (const char *file_name, void (**eip) (void), void **esp)
   bool success = false;
   int i;
 
+	lock_acquire(&filesys_lock);
+
   /* Allocate and activate page directory. */
   t->pagedir = pagedir_create ();
   if (t->pagedir == NULL) 
@@ -352,11 +358,12 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
   /* Open executable file. */
   file = filesys_open (file_name);
-  if (file == NULL) 
+  if (file == NULL)
     {
       printf ("load: %s: open failed\n", file_name);
       goto done; 
     }
+	file_deny_write(file);
 
   /* Read and verify executable header. */
   if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr
@@ -439,11 +446,12 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
   success = true;
 
-//  thread_current()->self = file;
+  thread_current()->self = file;
 
  done:
   /* We arrive here whether the load is successful or not. */
-  file_close (file);
+//  file_close (file);
+	lock_release(&filesys_lock);
   return success;
 }
 

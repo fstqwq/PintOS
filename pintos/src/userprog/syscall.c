@@ -162,6 +162,8 @@ syscall_open(struct intr_frame *f) {
 	struct file *fi = filesys_open(file_name);
 	lock_release(&filesys_lock);
 
+//	printf("openaddr %x\n", fi);
+
 
 	if (fi == NULL) {
 //		printf("open file failed!");
@@ -173,6 +175,7 @@ syscall_open(struct intr_frame *f) {
 		struct thread *t = thread_current();
 		fd_e->fd = t->file_cnt++;
 		list_push_back(&t->files, &fd_e->elem);
+//		printf("fd = %d\n", fd_e->fd);
 		return fd_e->fd;
 	}
 }
@@ -222,9 +225,12 @@ syscall_read(struct intr_frame *f) {
 		if (fd_e == NULL)
 			return -1;
 		else {
+//			printf("addr = %x\n", fd_e->ptr);
 			lock_acquire(&filesys_lock);
 			int ret = file_read(fd_e->ptr, buffer, size);
 			lock_release(&filesys_lock);
+//			printf("addr = %x\n", fd_e->ptr);
+//			printf("read ret %d %buf = %s\n", ret, buffer);
 			return ret;
 		}
 	}
@@ -243,8 +249,10 @@ syscall_write(struct intr_frame *f) {
 //	printf("fd = %d\n", fd);
 //	printf("buffer = %s\n", buffer);
 
-	if (!is_valid_addr(buffer))
+	if (!is_valid_addr(buffer)) {
+//		printf("fuck!\n");
 		return -1;
+	}
 
 	if (fd == 1) {
 		putbuf(buffer, size);
@@ -252,12 +260,16 @@ syscall_write(struct intr_frame *f) {
 	}
 	else {
 		struct fd_t* fd_e = get_file_by_fd(&thread_current()->files, fd);
-		if (fd_e == NULL)
+		if (fd_e == NULL) {
 			return -1;
+		}
 		else {
 			lock_acquire(&filesys_lock);
 			int ret = file_write(fd_e->ptr, buffer, size);
 			lock_release(&filesys_lock);
+//			printf("%x %x\n", fd_e->ptr, thread_current()->self);
+
+//			printf("write ret %d %buf = %s\n", ret, buffer);
 			return ret;
 		}
 	}
@@ -266,8 +278,8 @@ syscall_write(struct intr_frame *f) {
 void
 syscall_seek(struct intr_frame *f) {
 	int fd, pos;
-	pop_stack(f->esp, &fd, 5);
-	pop_stack(f->esp, &pos, 4);
+	pop_stack(f->esp, &pos, 5);
+	pop_stack(f->esp, &fd, 4);
 
 	lock_acquire(&filesys_lock);
 	file_seek(get_file_by_fd(&thread_current()->files, fd)->ptr, pos);
