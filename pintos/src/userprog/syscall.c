@@ -81,6 +81,7 @@ void
 syscall_exit(struct intr_frame *f) {
 	int status;
 	pop_stack(f->esp, &status, 1);
+
 	syscall_exit_helper(status);
 }
 
@@ -122,8 +123,9 @@ int
 syscall_create(struct intr_frame *f) {
 	int size;
 	char *file_name;
-	pop_stack(f->esp, &size, 5);
-	pop_stack(f->esp, &file_name, 4);
+	pop_stack(f->esp, &size, 2);
+	pop_stack(f->esp, &file_name, 1);
+
 	if (!is_valid_addr(file_name))
 		return false;
 
@@ -152,6 +154,7 @@ int
 syscall_open(struct intr_frame *f) {
 	char *file_name;
 	pop_stack(f->esp, &file_name, 1);
+
 	if (!is_valid_addr(file_name))
 		return -1;
 
@@ -199,9 +202,9 @@ syscall_read(struct intr_frame *f) {
 	char *buffer;
 	int fd;
 
-	pop_stack(f->esp, &size, 7);
-	pop_stack(f->esp, &buffer, 6);
-	pop_stack(f->esp, &fd, 5);
+	pop_stack(f->esp, &size, 3);
+	pop_stack(f->esp, &buffer, 2);
+	pop_stack(f->esp, &fd, 1);
 
 	if (!is_valid_addr(buffer))
 		return -1;
@@ -231,9 +234,9 @@ syscall_write(struct intr_frame *f) {
 	char *buffer;
 	int fd;
 
-	pop_stack(f->esp, &size, 7);
-	pop_stack(f->esp, &buffer, 6);
-	pop_stack(f->esp, &fd, 5);
+	pop_stack(f->esp, &size, 3);
+	pop_stack(f->esp, &buffer, 2);
+	pop_stack(f->esp, &fd, 1);
 
 	if (!is_valid_addr(buffer)) {
 		return -1;
@@ -260,8 +263,8 @@ syscall_write(struct intr_frame *f) {
 void
 syscall_seek(struct intr_frame *f) {
 	int fd, pos;
-	pop_stack(f->esp, &pos, 5);
-	pop_stack(f->esp, &fd, 4);
+	pop_stack(f->esp, &pos, 2);
+	pop_stack(f->esp, &fd, 1);
 
 	lock_acquire(&filesys_lock);
 	file_seek(get_file_by_fd(&thread_current()->files, fd)->ptr, pos);
