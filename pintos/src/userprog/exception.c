@@ -4,6 +4,7 @@
 #include "userprog/gdt.h"
 #include "threads/interrupt.h"
 #include "threads/thread.h"
+#include "userprog/syscall.h"
 
 /* Number of page faults processed. */
 static long long page_fault_cnt;
@@ -87,9 +88,6 @@ kill (struct intr_frame *f)
       /* User's code segment, so it's a user exception, as we
          expected.  Kill the user process.  */
 
-      /* modified */
-	    syscall_exit_helper(-1);
-
       printf ("%s: dying due to interrupt %#04x (%s).\n",
               thread_name (), f->vec_no, intr_name (f->vec_no));
       intr_dump_frame (f);
@@ -102,8 +100,7 @@ kill (struct intr_frame *f)
          here.)  Panic the kernel to make the point.  */
 	    /* modified */
 
-	    syscall_exit_helper(-1);
-      intr_dump_frame (f);
+	    intr_dump_frame (f);
 
       PANIC ("Kernel bug - unexpected interrupt in kernel"); 
 
@@ -112,7 +109,6 @@ kill (struct intr_frame *f)
          kernel. */
 
 	    /* modified */
-	    syscall_exit_helper(-1);
 
       printf ("Interrupt %#04x (%s) in unknown segment %04x\n",
              f->vec_no, intr_name (f->vec_no), f->cs);
@@ -160,14 +156,18 @@ page_fault (struct intr_frame *f)
   write = (f->error_code & PF_W) != 0;
   user = (f->error_code & PF_U) != 0;
 
+  sema_up(&thread_current()->parent->load_sema);
+  syscall_exit_helper(-1);
+
   /* To implement virtual memory, delete the rest of the function
      body, and replace it with code that brings in the page to
      which fault_addr refers. */
-//  printf ("Page fault at %p: %s error %s page in %s context.\n",
-//          fault_addr,
-//          not_present ? "not present" : "rights violation",
-//          write ? "writing" : "reading",
-//          user ? "user" : "kernel");
+
+  printf ("Page fault at %p: %s error %s page in %s context.\n",
+          fault_addr,
+          not_present ? "not present" : "rights violation",
+          write ? "writing" : "reading",
+          user ? "user" : "kernel");
   kill (f);
 }
 

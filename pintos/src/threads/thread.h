@@ -132,7 +132,7 @@ struct thread
     uint32_t *pagedir;                  /* Page directory. */
 
 		/* yveh */
-		int ret_status, file_cnt, wait_tid, child_depth;
+		int ret_status, file_cnt, wait_tid;
 		struct semaphore load_sema, wait_sema;
 		bool load_success;
 		struct thread *parent;

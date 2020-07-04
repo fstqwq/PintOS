@@ -216,9 +216,6 @@ thread_create (const char *name, int priority,
 
   /* yveh */
 #ifdef USERPROG
-#define CHILD_DEPTH_LIM 40
-  if (t->child_depth >= CHILD_DEPTH_LIM)
-  	return TID_ERROR;
 	struct child_process *ch = malloc(sizeof(*ch));
   ch->tid = t->tid;
   ch->ret_status = t->ret_status;
@@ -692,7 +689,6 @@ init_thread (struct thread *t, const char *name, int priority)
   t->wait_tid = -1;
   t->file_cnt = 2;
   t->parent = running_thread();
-  t->child_depth = t->parent->tid == 0 ? 0 : t->parent->child_depth + 1;
   t->self = NULL;
   list_init(&t->files);
   list_init(&t->children);
