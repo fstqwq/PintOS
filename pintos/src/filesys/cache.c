@@ -8,12 +8,12 @@
 
 #define CACHE_SIZE 64
 
-struct cache_block{
+struct cache_block {
   unsigned char buffer[BLOCK_SECTOR_SIZE];
   block_sector_t sector_index;
-  bool accessed;
-  bool dirty;
   bool used;
+  bool recent;
+  bool dirty;
 };
 
 static struct cache_block caches[CACHE_SIZE];
@@ -29,10 +29,11 @@ int used_cnt = 0, current_cache = 0;
                                 cache.sector_index = sector; } while (false)
 static int cache_get_free (void);
 
-static int cache_get_free () { // only called by locked func
+static int
+cache_get_free () { // only called by locked func
   current_cache = next_cache(current_cache);
-  while (caches[current_cache].used && caches[current_cache].accessed) {
-    caches[current_cache].accessed = 0;
+  while (caches[current_cache].used && caches[current_cache].recent) {
+    caches[current_cache].recent = false;
     current_cache = next_cache(current_cache);
   }
   if (caches[current_cache].used) {
@@ -46,14 +47,16 @@ static int cache_get_free () { // only called by locked func
   return current_cache;
 }
 
-void cache_init () {
+void
+cache_init () {
   lock_init (&cache_lock);
   used_cnt = 0;
   current_cache = -1;
   memset(caches, 0, sizeof caches);
 }
 
-void cache_read (block_sector_t sector, void *buffer) {
+void
+cache_read (block_sector_t sector, void *buffer) {
   lock_acquire (&cache_lock);
   int i;
   for (i = 0; i < CACHE_SIZE; ++i)
@@ -64,12 +67,13 @@ void cache_read (block_sector_t sector, void *buffer) {
     occupy_cache(caches[i], sector);
     read_fs(caches[i]);
   }
+  caches[i].recent = true;
   memcpy (buffer, caches[i].buffer, BLOCK_SECTOR_SIZE);
-  caches[i].accessed = true;
   lock_release (&cache_lock);
 }
 
-void cache_write (block_sector_t sector, const void *buffer) {
+void
+cache_write (block_sector_t sector, const void *buffer) {
   lock_acquire (&cache_lock);
   int i;
   for (i = 0; i < CACHE_SIZE; ++i)
@@ -79,13 +83,14 @@ void cache_write (block_sector_t sector, const void *buffer) {
     i = cache_get_free ();
     occupy_cache(caches[i], sector);
   }
-  memcpy (caches[i].buffer, buffer, BLOCK_SECTOR_SIZE);
   caches[i].dirty = true;
-  caches[i].accessed = true;
+  caches[i].recent = true;
+  memcpy (caches[i].buffer, buffer, BLOCK_SECTOR_SIZE);
   lock_release (&cache_lock);
 }
 
-void cache_done () {
+void
+cache_done () {
   int i;
   for (i = 0; i < CACHE_SIZE; ++i)
     if (caches[i].used && caches[i].dirty)
