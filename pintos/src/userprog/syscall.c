@@ -115,9 +115,11 @@ syscall_halt() {
 
 static void
 syscall_exit(struct intr_frame *f) {
-  int status;
-  pop_stack(f->esp, &status, 1);
-  syscall_exit_helper(status);
+
+	int status;
+	pop_stack(f->esp, &status, 1);
+
+	syscall_exit_helper(status);
 }
 
 static int
@@ -156,6 +158,7 @@ syscall_wait(struct intr_frame *f) {
 
 static bool
 syscall_create(struct intr_frame *f) {
+
   int size;
   char *file_name;
   pop_stack(f->esp, &size, 2);
@@ -300,9 +303,9 @@ syscall_write(struct intr_frame *f) {
 
 static void
 syscall_seek(struct intr_frame *f) {
-  int fd, pos;
-  pop_stack(f->esp, &pos, 5);
-  pop_stack(f->esp, &fd, 4);
+	int fd, pos;
+	pop_stack(f->esp, &pos, 2);
+	pop_stack(f->esp, &fd, 1);
 
   lock_acquire(&filesys_lock);
   file_seek(get_file_by_fd(&thread_current()->files, fd)->ptr, pos);
