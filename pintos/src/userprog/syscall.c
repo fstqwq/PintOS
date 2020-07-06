@@ -244,7 +244,6 @@ syscall_open(struct intr_frame *f) {
 	struct file *fi = filesys_open(file_name);
 	lock_release(&filesys_lock);
 	if (fi == NULL) {
-		printf("fuck!\n");
 		return -1;
 	}
   else {
@@ -516,6 +515,7 @@ syscall_inumber (struct intr_frame *f) {
     return inode_get_inumber (file_get_inode (fd_e->ptr));
   return -1;
 }
+#endif
 
 #ifdef VM
 int
@@ -554,7 +554,6 @@ syscall_mmap(struct intr_frame *f) {
 				page_free(page_for_addr((void *) ((mp_e->base) + (PGSIZE * i))));
 			}
 			free(mp_e);
-			printf("fuck!\n");
 			return -1;
 		}
 		p->private = false;

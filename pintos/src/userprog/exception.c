@@ -157,13 +157,14 @@ page_fault (struct intr_frame *f)
   user = (f->error_code & PF_U) != 0;
 
   sema_up(&thread_current()->parent->load_sema);
-
+#ifdef VM
 	if (user && not_present) {
 		if (!page_in (fault_addr)) {
 			syscall_exit_helper(-1);
 		}
 		return;
 	}
+#endif
   syscall_exit_helper(-1);
 
   /* To implement virtual memory, delete the rest of the function
