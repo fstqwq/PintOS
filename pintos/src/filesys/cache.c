@@ -1,3 +1,7 @@
+/* 
+  Thanks Yuxuan Chen for helping us understand the algorithm.
+*/
+
 #include <lib/stdbool.h>
 #include <lib/stdio.h>
 #include <lib/string.h>

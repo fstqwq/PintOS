@@ -1,5 +1,5 @@
 		     +--------------------------+
-       	     |		    CS 318		    |
+       	     |		    MS 110   	    |
 		     | PROJECT 2: USER PROGRAMS	|
 		     | 	   DESIGN DOCUMENT     	|
 		     +--------------------------+
@@ -176,38 +176,3 @@ P terminates without waiting, after C exits:
 
 C acquires the lock and nulls the thread pointer to itself.
 
-
----- RATIONALE ----
-
->> B9: Why did you choose to implement access to user memory from the
->> kernel in the way that you did?
-
->> B10: What advantages or disadvantages can you see to your design
->> for file descriptors?
-
->> B11: The default tid_t to pid_t mapping is the identity mapping.
->> If you changed it, what advantages are there to your approach?
-
-			   SURVEY QUESTIONS
-			   ================
-
-Answering these questions is optional, but it will help us improve the
-course in future quarters.  Feel free to tell us anything you
-want--these questions are just to spur your thoughts.  You may also
-choose to respond anonymously in the course evaluations at the end of
-the quarter.
-
->> In your opinion, was this assignment, or any one of the three problems
->> in it, too easy or too hard?  Did it take too long or too little time?
-
->> Did you find that working on a particular part of the assignment gave
->> you greater insight into some aspect of OS design?
-
->> Is there some particular fact or hint we should give students in
->> future quarters to help them solve the problems?  Conversely, did you
->> find any of our guidance to be misleading?
-
->> Do you have any suggestions for the TAs to more effectively assist
->> students, either for future quarters or the remaining projects?
-
->> Any other comments?
