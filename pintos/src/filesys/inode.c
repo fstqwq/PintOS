@@ -17,6 +17,9 @@
     inode --> L1 --> L2 --> content
 
     It may be a good solution if we put L1 in unused, but efficiency is not that important.
+
+    The implementataion is refered to https://github.com/chenyxuan/PintOS
+    which helps me understand wtf is the extensible files
  */
 #define TABLE_SIZE  128
 
