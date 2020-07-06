@@ -9,4 +9,4 @@
 详见 pintos/src/threads/DESIGNDOC, pintos/src/userprog/DESIGNDOC, pintos/src/vm/DESIGNDOC, pintos/src/filesys/DESIGNDOC. 前两个遵循了 jhu 的模板，后两个按照李嘉森助教的意思写的中文。
 
 ## 杂项
-得分： 100 100 96.4 102.2
+得分： 100 100 100 110
