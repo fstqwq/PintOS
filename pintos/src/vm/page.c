@@ -58,14 +58,14 @@ page_in(void *vaddr) {
 	}
 	lock_acquire(&frame_lock);
 	if (p->sector != (block_sector_t) -1) {
-//		lock_acquire(&filesys_lock);
+		lock_acquire(&filesys_lock);
 		swap_in(p);
-//		lock_release(&filesys_lock);
+		lock_release(&filesys_lock);
 	}
 	else if (p->file != NULL) {
-//		lock_acquire(&filesys_lock);
+		lock_acquire(&filesys_lock);
 		off_t read_bytes = file_read_at(p->file, p->frame->base, p->read_bytes, p->file_offset);
-//		lock_release(&filesys_lock);
+		lock_release(&filesys_lock);
 		off_t zero_bytes = PGSIZE - read_bytes;
 		memset (p->frame->base + read_bytes, 0, zero_bytes);
 	}
@@ -90,14 +90,14 @@ page_out (struct page *p)
 	else {
 		if (dirty) {
 			if (p->private) {
-//				lock_acquire(&filesys_lock);
+				lock_acquire(&filesys_lock);
 				success = swap_out(p);
-//				lock_release(&filesys_lock);
+				lock_release(&filesys_lock);
 			}
 			else {
-//				lock_acquire(&filesys_lock);
+				lock_acquire(&filesys_lock);
 				success = file_write_at(p->file, (const void *) p->frame->base, p->read_bytes, p->file_offset);
-//				lock_release(&filesys_lock);
+				lock_release(&filesys_lock);
 			}
 		}
 		else {

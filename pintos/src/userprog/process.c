@@ -193,8 +193,8 @@ process_exit (void)
 //	printf("tid = %d %s: exit(%d)\n", cur->tid, cur->name, cur->ret_status);
 
   /* ??? */
-	if (!lock_held_by_current_thread(&filesys_lock))
-		lock_acquire(&filesys_lock);
+  if (!lock_held_by_current_thread(&filesys_lock))
+    lock_acquire(&filesys_lock);
 
 	/* Close files */
 	file_close(cur->self);
@@ -538,6 +538,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       size_t page_zero_bytes = PGSIZE - page_read_bytes;
       /* Get a page of memory. */
 #ifdef VM
+      lock_release(&filesys_lock);
 	    struct page *kpage = page_alloc(upage, writable);
       if (kpage == NULL)
         return false;
@@ -553,6 +554,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 //        return false;
 //      }
 //      memset(kpage->frame->base + page_read_bytes, 0, page_zero_bytes);
+		lock_acquire(&filesys_lock);
 #else
       uint8_t *kpage = palloc_get_page (PAL_USER);
       if (kpage == NULL)
@@ -588,6 +590,7 @@ setup_stack (void **esp)
 {
   bool success = false;
 #ifdef VM
+  lock_release(&filesys_lock);
   struct page *kpage = page_alloc(((uint8_t *) PHYS_BASE) - PGSIZE, true);
   if (kpage != NULL) {
     success = frame_alloc(kpage);
@@ -599,6 +602,7 @@ setup_stack (void **esp)
 			page_free(kpage);
 		}
   }
+  lock_acquire(&filesys_lock);
 #else
 	uint8_t *kpage;
 
