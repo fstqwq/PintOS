@@ -10,18 +10,12 @@ static struct bitmap *swap_bitmap;
 #define PAGE_SECTORS (PGSIZE / BLOCK_SECTOR_SIZE)
 
 void
-swap_init () {
+swap_init() {
 	swap_device = block_get_role (BLOCK_SWAP);
-	if (swap_device == NULL) {
-		printf ("no swap device--swap disabled\n");
+	if (swap_device == NULL)
 		swap_bitmap = bitmap_create(0);
-	}
-	else {
+	else
 		swap_bitmap = bitmap_create(block_size(swap_device) / PAGE_SECTORS);
-	}
-	if (swap_bitmap == NULL) {
-		PANIC("couldn't create swap bitmap");
-	}
 	lock_init (&swap_lock);
 }
 
@@ -29,9 +23,8 @@ void
 swap_in(struct page *p) {
 	size_t i;
 
-	for (i = 0; i < PAGE_SECTORS; i++) {
+	for (i = 0; i < PAGE_SECTORS; i++)
 		block_read(swap_device, p->sector + i, p->frame->base + i * BLOCK_SECTOR_SIZE);
-	}
 	bitmap_reset(swap_bitmap, p->sector / PAGE_SECTORS);
 	p->sector = -1;
 }
@@ -49,9 +42,8 @@ swap_out(struct page *p) {
 
 	p->sector = slot * PAGE_SECTORS;
 
-	for (i = 0; i < PAGE_SECTORS; i++) {
+	for (i = 0; i < PAGE_SECTORS; i++)
 		block_write(swap_device, p->sector + i, (uint8_t *) p->frame->base + i * BLOCK_SECTOR_SIZE);
-	}
 
 	p->private = false;
 	p->file = NULL;

@@ -3,8 +3,8 @@
 
 #include "vm/page.h"
 
-void swap_init ();
-void swap_in (struct page *p);
-bool swap_out (struct page *p);
+void swap_init();
+void swap_in(struct page *p);
+bool swap_out(struct page *p);
 
 #endif

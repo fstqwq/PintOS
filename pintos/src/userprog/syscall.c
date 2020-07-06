@@ -238,8 +238,6 @@ syscall_open(struct intr_frame *f) {
 		return -1;
 	}
 
-
-//	printf("tid = %d filename = %s!\n", thread_current()->tid, file_name);
 	lock_acquire(&filesys_lock);
 	struct file *fi = filesys_open(file_name);
 	lock_release(&filesys_lock);
@@ -320,7 +318,6 @@ syscall_read(struct intr_frame *f) {
 			ofs = file_read(fd_e->ptr, buffer, read_size);
 			lock_release(&filesys_lock);
 		}
-//		printf("ofs = %x\n", size);
 		if (ofs == 0)
 			break;
 		ret += ofs;
@@ -370,8 +367,6 @@ syscall_write(struct intr_frame *f) {
 			ofs = file_write(fd_e->ptr, buffer, write_size);
 			lock_release(&filesys_lock);
 		}
-//		printf("ofs = %x\n", size);
-
 		if (ofs == 0)
 			break;
 		ret += ofs;

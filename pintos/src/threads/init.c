@@ -137,7 +137,6 @@ pintos_init (void)
 	lock_init(&filesys_lock);
 #endif
 #ifdef VM
-	page_init();
 	frame_init();
 	swap_init();
 #endif

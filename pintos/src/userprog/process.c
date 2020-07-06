@@ -190,9 +190,8 @@ process_exit (void)
   uint32_t *pd;
 
   printf("%s: exit(%d)\n", cur->name, cur->ret_status);
-//	printf("tid = %d %s: exit(%d)\n", cur->tid, cur->name, cur->ret_status);
 
-  /* ??? */
+  /* if thread_exit but not release filesys_lock */
   if (!lock_held_by_current_thread(&filesys_lock))
     lock_acquire(&filesys_lock);
 
@@ -209,8 +208,7 @@ process_exit (void)
 
 	lock_release(&filesys_lock);
 
-//	printf("page_exit done\n");
-
+	/* delete mapping list */
 	struct mapping_t *mp_e;
 	while (!list_empty(&cur->mappings)) {
 		mp_e = list_entry(list_pop_front(&cur->mappings), struct mapping_t, elem);
@@ -221,6 +219,7 @@ process_exit (void)
 		free(mp_e);
 	}
 
+	/* destroy page table */
 	lock_acquire(&frame_lock);
 	page_exit();
 	lock_release(&frame_lock);

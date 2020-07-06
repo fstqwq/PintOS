@@ -4,19 +4,9 @@
 
 #define STACK_MAX (8 * 1024 * 1024)
 
-struct lock page_lock;
-
-void
-page_init() {
-	lock_init(&page_lock);
-}
-
 bool
-install_page (void *upage, void *kpage, bool writable)
-{
+install_page(void *upage, void *kpage, bool writable) {
 	struct thread *t = thread_current ();
-
-//	printf("install tid = %d %x\n", t->tid, upage);
 
 	return (pagedir_get_page (t->pagedir, upage) == NULL
 	        && pagedir_set_page (t->pagedir, upage, kpage, writable));
@@ -27,17 +17,12 @@ page_for_addr(void *vaddr) {
 	struct page p;
 	struct hash_elem *e;
 
-//	printf("page_for_addr = %x\n", vaddr);
-
 	p.vaddr = (void*)pg_round_down(vaddr);
 	e = hash_find(thread_current()->pages, &p.elem);
 
 	if (e != NULL) {
-//		printf("fuck!\n");
 		return hash_entry(e, struct page, elem);
 	}
-
-
 
 	if ((p.vaddr > PHYS_BASE - STACK_MAX) && ((void *)thread_current()->esp - 32 <= vaddr)) {
 		return page_alloc(p.vaddr, true);
@@ -47,7 +32,6 @@ page_for_addr(void *vaddr) {
 
 bool
 page_in(void *vaddr) {
-//	printf("page_in %x\n", vaddr);
 	struct page *p = page_for_addr(vaddr);
 	if (p == NULL) {
 		return false;
@@ -141,7 +125,6 @@ page_alloc(void *vaddr, bool writable) {
 
 void
 page_free(struct page *p) {
-//	printf("free %x\n", p->vaddr);
 	lock_acquire(&frame_lock);
 	struct thread *t = thread_current();
 	if (p->frame != NULL) {
@@ -160,9 +143,8 @@ page_free(struct page *p) {
 }
 
 static void
-destroy_page (struct hash_elem *p_, void *aux UNUSED)
-{
-	struct page *p = hash_entry (p_, struct page, elem);
+destroy_page(struct hash_elem *e, void *aux UNUSED) {
+	struct page *p = hash_entry (e, struct page, elem);
 	if (p->frame != NULL) {
 		pagedir_clear_page(thread_current()->pagedir, p->vaddr);
 		frame_free(p->frame);
@@ -171,10 +153,8 @@ destroy_page (struct hash_elem *p_, void *aux UNUSED)
 	free(p);
 }
 
-/* Destroys the current process's page table. */
 void
-page_exit (void)
-{
+page_exit() {
 	struct hash *h = thread_current()->pages;
 	if (h != NULL)
 		hash_destroy(h, destroy_page);

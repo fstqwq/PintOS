@@ -1,0 +1,69 @@
+			+--------------------+
+			|        MS 110      |
+			| PROJECT 4: FILESYS |
+			|   DESIGN DOCUMENT  |
+			+--------------------+
+				   
+---- GROUP ----
+
+Zonghan Yang    <fstqwq@sjtu.edu.cn>
+Yuheng Zhang    <yveh1999@sjtu.edu.cn>
+Yunqing Li      <lyq_cs_sjtu@sjtu.edu.cn>
+Yi Wang         <refraction334@sjtu.edu.cn>
+
+
+---- 以下为中文 -----
+
+1. frame
+
+pintos的frame相关的函数是palloc_get_page和palloc_free_page，意为申请一个frame page和释放一个frame page。
+
+我的frame的实现利用了pintos原有的函数，但是更改了分配的策略。
+
+struct frame维护了base address，以及哪一个page拥有当前的frame。我同时维护了一个struct frame的list用于置换。
+
+1) 如果还能palloc_get_page申请，那么就申请，同时加入list当中。
+
+2) 如果不能申请新的了，就寻找一个没有被page拥有的frame
+
+3) 如果1) 2)都失败了，则调用时钟置换算法，找到一个frame，调用page_out将其调入swap slot或者file（在下面pagging还会提到）腾出空间
+
+这样保证了除非swap已满，我们总是能够找到empty frame。
+
+2. pagging
+
+pintos naive的实现是直接减掉vaddr = paddr + PHYS_BASE。这样实现不能实现多个thread拥有相同的地址。也不能实现栈的增长，需要改进。
+
+pintos自带了vaddr到paddr的映射表，首先每个thread有一个pagedir，根据地址的高10位找到对应的page table，再根据中间10位找到页表项，最后12位是offset。
+
+我的实现利用了pintos自带的数据结构。同时我维护了一个hash表维护有哪些page的vaddr存在。自带的数据结构只能维护在frame中的vaddr。
+
+每个page的数据真正存在的地方可能有三个，frame，file或者swap slot，我们需要记录下来。
+
+初始分配时我不会真正给一个frame，缺页终端是会去hash表查询，如果present，会首先分配一个frame，然后调用page_in从file或者swap中调入。
+
+3. stack growing
+
+栈增长时可能会访问hash表不存在的页，我们需要判断是不是栈的增长，如果是，我们需要分配新页。我判断的方法是距离栈顶32字节内。
+
+栈大小我定义为8MB
+
+4. load and mmap
+
+mmap意为将内存与文件link起来，我实现的方法是开file_length / PG_SIZE个页，每个页的数据存放于文件中(需要记录文件名，offset，length)，同时我还维护了一个bool private。
+
+表示是否文件为可写，如果不可写，则置换page_out时需置入swap中，否则可以直接写回文件。
+
+可执行文件一开始的load等价于mmap
+
+为了实现unmmap，我们还需要为每个进程维护一个mapping_id的list，用于查找和删除。
+
+5. read and write
+
+因为page大小有限制，因此需要对syscall中的read和write作出相应的修改，如果一次读写的内容超过了一页，我们则需要开辟新页，这可以通过一个while循环来简单的实现
+
+6. lock相关
+
+这一部分有较大的同步问题。第一个是frame_alloc的同步，因为hash表是线程不安全的，我们需要小心地在某些函数加上frame_lock
+
+第二个是文件的同步，这一部分设计比较多的读写，需要留意在每一个对文件操作的前后加上filesys_lock

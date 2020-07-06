@@ -7,8 +7,7 @@
 #include "filesys/off_t.h"
 #include "devices/block.h"
 
-struct page
-{
+struct page {
 	void *vaddr;
 	bool writable;
 	struct thread *thread;
@@ -27,8 +26,11 @@ struct page
 
 void page_init();
 bool page_in (void *vaddr);
+bool page_out (struct page *p);
 struct page *page_for_addr(void *vaddr);
 struct page *page_alloc(void *vaddr, bool writable);
+void page_free(struct page *p);
+void page_exit();
 
 
 hash_hash_func page_hash;

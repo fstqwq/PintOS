@@ -15,7 +15,6 @@ frame_init() {
 
 bool
 frame_alloc(struct page *p) {
-//	printf("frame_alloc\n");
 	lock_acquire (&frame_lock);
 
 	p->frame = malloc(sizeof *p->frame);
@@ -36,7 +35,6 @@ frame_alloc(struct page *p) {
 				victim = entry;
 				break;
 			}
-//			printf("tid = %d, vaddr = %x\n", entry->page->thread->tid, entry->page->vaddr);
 			if (pagedir_is_accessed(entry->page->thread->pagedir, entry->page->vaddr)) {
 				pagedir_set_accessed (entry->page->thread->pagedir, entry->page->vaddr, false);
 				continue;
@@ -74,9 +72,7 @@ void
 frame_free(struct frame *f) {
 //	lock_acquire(&frame_lock);
 	palloc_free_page(f->base);
-//	printf("ok\n");
 	list_remove(&f->elem);
-//	printf("done\n");
 	free(f);
 //	lock_release(&frame_lock);
 }
