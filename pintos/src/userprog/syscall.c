@@ -15,6 +15,11 @@
 #include "string.h"
 #include "userprog/process.h"
 
+#ifdef VM
+#include "vm/page.h"
+#include "vm/frame.h"
+#endif
+
 static void syscall_handler (struct intr_frame *);
 static void syscall_halt ();
 static void syscall_exit (struct intr_frame *);
@@ -44,21 +49,51 @@ syscall_init (void)
 
 static void*
 get_paddr(void *vaddr) {
-  void *ret;
-  if (!is_user_vaddr(vaddr) || !(ret = pagedir_get_page(thread_current()->pagedir, vaddr))) {
-    syscall_exit_helper(-1);
-    return 0;
-  }
-  return ret;
+#ifdef VM
+	struct page *ret;
+	if (!is_user_vaddr(vaddr) || !(ret = page_for_addr(vaddr))) {
+		syscall_exit_helper(-1);
+		return NULL;
+	}
+	if (ret->frame == NULL) {
+		if (page_in(ret->vaddr))
+			return ret->frame->base + pg_ofs(vaddr);
+		else
+			return NULL;
+	}
+	return ret->frame->base + pg_ofs(vaddr);
+#else
+	void *ret;
+	if (!is_user_vaddr(vaddr) || !(ret = pagedir_get_page(thread_current()->pagedir, vaddr))) {
+		syscall_exit_helper(-1);
+		return NULL;
+	}
+	return ret;
+#endif
 }
 
 static bool
 is_valid_addr(void *addr) {
-  if (!is_user_vaddr(addr) || !pagedir_get_page(thread_current()->pagedir, addr)) {
-    syscall_exit_helper(-1);
-    return 0;
-  }
-  return 1;
+#ifdef VM
+	struct page *ret;
+	if (!is_user_vaddr(addr) || !(ret = page_for_addr(addr))) {
+		syscall_exit_helper(-1);
+		return false;
+	}
+	if (ret->frame == NULL) {
+		if (page_in(ret->vaddr))
+			return true;
+		else
+			return false;
+	}
+	return true;
+#else
+	if (!is_user_vaddr(addr) || !pagedir_get_page(thread_current()->pagedir, addr)) {
+		syscall_exit_helper(-1);
+		return false;
+	}
+	return true;
+#endif
 }
 
 static void*
@@ -73,19 +108,25 @@ syscall_handler (struct intr_frame *f)
   int sysnum = *(int*)f->esp;
 //  printf ("tid %d system call %d!\n", thread_current()->tid, sysnum);
   switch (sysnum) {
-    case SYS_HALT: syscall_halt(); break;
-    case SYS_EXIT: syscall_exit(f); break;
-    case SYS_EXEC: f->eax = syscall_exec(f); break;
-    case SYS_WAIT: f->eax = syscall_wait(f); break;
-    case SYS_CREATE: f->eax = syscall_create(f); break;
-    case SYS_REMOVE: f->eax = syscall_remove(f); break;
-    case SYS_OPEN: f->eax = syscall_open(f); break;
-    case SYS_FILESIZE: f->eax = syscall_filesize(f); break;
-    case SYS_READ: f->eax = syscall_read(f); break;
-    case SYS_WRITE: f->eax = syscall_write(f); break;
-    case SYS_SEEK: syscall_seek(f); break;
-    case SYS_TELL: f->eax = syscall_tell(f); break;
-    case SYS_CLOSE: syscall_close(f); break;
+	  case SYS_HALT: syscall_halt(); break;
+	  case SYS_EXIT: syscall_exit(f); break;
+	  case SYS_EXEC: f->eax = syscall_exec(f); break;
+	  case SYS_WAIT: f->eax = syscall_wait(f); break;
+	  case SYS_CREATE: f->eax = syscall_create(f); break;
+	  case SYS_REMOVE: f->eax = syscall_remove(f); break;
+	  case SYS_OPEN: f->eax = syscall_open(f); break;
+	  case SYS_FILESIZE: f->eax = syscall_filesize(f); break;
+	  case SYS_READ: f->eax = syscall_read(f); break;
+	  case SYS_WRITE: f->eax = syscall_write(f); break;
+	  case SYS_SEEK: syscall_seek(f); break;
+	  case SYS_TELL: f->eax = syscall_tell(f); break;
+	  case SYS_CLOSE: syscall_close(f); break;
+
+#ifdef VM
+	  case SYS_MMAP: f->eax = syscall_mmap(f); break;
+	  case SYS_MUNMAP: syscall_munmap(f); break;
+#endif
+
 #ifdef FILESYS
     case SYS_CHDIR: f->eax = syscall_chdir(f); break;
     case SYS_MKDIR: f->eax = syscall_mkdir(f); break;
@@ -97,6 +138,7 @@ syscall_handler (struct intr_frame *f)
     default:
       printf("Not implemented system call %d!\n", sysnum);
   }
+//  printf("tid %d return %d\n", thread_current()->tid, f->eax);
 }
 
 void
@@ -189,18 +231,22 @@ syscall_remove(struct intr_frame *f) {
 
 static int
 syscall_open(struct intr_frame *f) {
-  char *file_name;
-  pop_stack(f->esp, &file_name, 1);
-  if (!is_valid_addr(file_name))
-    return -1;
+	char *file_name;
+	pop_stack(f->esp, &file_name, 1);
 
-  lock_acquire(&filesys_lock);
-  struct file *fi = filesys_open(file_name);
-  lock_release(&filesys_lock);
+	if (!is_valid_addr(file_name)) {
+		return -1;
+	}
 
-  if (fi == NULL) {
-    return -1;
-  }
+
+//	printf("tid = %d filename = %s!\n", thread_current()->tid, file_name);
+	lock_acquire(&filesys_lock);
+	struct file *fi = filesys_open(file_name);
+	lock_release(&filesys_lock);
+	if (fi == NULL) {
+		printf("fuck!\n");
+		return -1;
+	}
   else {
     struct fd_t *fd_e = malloc(sizeof(*fd_e));
     fd_e->ptr = fi;
@@ -239,34 +285,51 @@ syscall_filesize(struct intr_frame *f) {
 
 static int
 syscall_read(struct intr_frame *f) {
-  int size;
-  char *buffer;
-  int fd;
+	int size;
+	char *buffer;
+	int fd;
 
-  pop_stack(f->esp, &size, 3);
-  pop_stack(f->esp, &buffer, 2);
-  pop_stack(f->esp, &fd, 1);
+	pop_stack(f->esp, &size, 3);
+	pop_stack(f->esp, &buffer, 2);
+	pop_stack(f->esp, &fd, 1);
 
-  if (!is_valid_addr(buffer))
-    return -1;
+	int ret = 0;
 
-  if (fd == 0) {
-    for (int i = 0; i < size; ++i) {
-      buffer[i] = input_getc();
-    }
-    return size;
-  }
-  else {
-    struct fd_t* fd_e = get_file_by_fd(&thread_current()->files, fd);
-    if (fd_e == NULL)
-      return -1;
-    else {
-      lock_acquire(&filesys_lock);
-      int ret = file_read(fd_e->ptr, buffer, size);
-      lock_release(&filesys_lock);
-      return ret;
-    }
-  }
+	struct fd_t* fd_e;
+	if (fd != 0) {
+		fd_e = get_file_by_fd(&thread_current()->files, fd);
+		if (fd_e == NULL)
+			return -1;
+	}
+
+	while (size > 0) {
+		if (!is_valid_addr(buffer))
+			return -1;
+
+		int page_left = PGSIZE - pg_ofs(buffer);
+		int read_size = size < page_left ? size : page_left;
+		off_t ofs;
+
+		if (fd == 0) {
+			for (int i = 0; i < read_size; ++i) {
+				buffer[i] = input_getc();
+			}
+			ofs = read_size;
+		}
+		else {
+			lock_acquire(&filesys_lock);
+			ofs = file_read(fd_e->ptr, buffer, read_size);
+			lock_release(&filesys_lock);
+		}
+//		printf("ofs = %x\n", size);
+		if (ofs == 0)
+			break;
+		ret += ofs;
+		buffer += ofs;
+		size -= ofs;
+	}
+
+	return ret;
 }
 
 static int
@@ -283,22 +346,41 @@ syscall_write(struct intr_frame *f) {
     return -1;
   }
 
-  if (fd == STDOUT_FILENO) {
-    putbuf(buffer, size);
-    return size;
-  }
-  else {
-    struct fd_t* fd_e = get_file_by_fd(&thread_current()->files, fd);
-    if (fd_e == NULL || inode_is_dir (file_get_inode(fd_e->ptr))) {
-      return -1;
-    }
-    else {
-      lock_acquire(&filesys_lock);
-      int ret = file_write(fd_e->ptr, buffer, size);
-      lock_release(&filesys_lock);
-      return ret;
-    }
-  }
+	int ret = 0;
+
+	struct fd_t* fd_e;
+	if (fd != 1) {
+		fd_e = get_file_by_fd(&thread_current()->files, fd);
+		if (fd_e == NULL || inode_is_dir (file_get_inode(fd_e->ptr)))
+			return -1;
+	}
+
+	while (size > 0) {
+		if (!is_valid_addr(buffer))
+			return -1;
+		int page_left = PGSIZE - pg_ofs(buffer);
+		int write_size = size < page_left ? size : page_left;
+		off_t ofs;
+
+		if (fd == 1) {
+			putbuf(buffer, write_size);
+			ofs = write_size;
+		}
+		else {
+			lock_acquire(&filesys_lock);
+			ofs = file_write(fd_e->ptr, buffer, write_size);
+			lock_release(&filesys_lock);
+		}
+//		printf("ofs = %x\n", size);
+
+		if (ofs == 0)
+			break;
+		ret += ofs;
+		buffer += ofs;
+		size -= ofs;
+	}
+
+	return ret;
 }
 
 static void
@@ -435,5 +517,82 @@ syscall_inumber (struct intr_frame *f) {
   return -1;
 }
 
+#ifdef VM
+int
+syscall_mmap(struct intr_frame *f) {
+	int fd;
+	void *addr;
+	pop_stack(f->esp, &fd, 1);
+	pop_stack(f->esp, &addr, 2);
 
+	if (addr == NULL || pg_ofs(addr) != 0)
+		return -1;
+
+	struct fd_t *entry = get_file_by_fd(&thread_current()->files, fd);
+
+	if (entry == NULL) {
+		return -1;
+	}
+
+	struct mapping_t *mp_e = malloc(sizeof(*mp_e));
+	struct thread *t = thread_current();
+	mp_e->id = t->mapping_cnt++;
+	lock_acquire(&filesys_lock);
+	mp_e->ptr = file_reopen(entry->ptr);
+	lock_release(&filesys_lock);
+	mp_e->page_cnt = 0;
+	mp_e->base = addr;
+
+	int ofs = 0;
+	lock_acquire(&filesys_lock);
+	int size = file_length (mp_e->ptr);
+	lock_release(&filesys_lock);
+	while (size > 0) {
+		struct page *p = page_alloc((uint8_t *)addr + ofs, true);
+		if (p == NULL) {
+			for (int i = 0; i < mp_e->page_cnt; i++) {
+				page_free(page_for_addr((void *) ((mp_e->base) + (PGSIZE * i))));
+			}
+			free(mp_e);
+			printf("fuck!\n");
+			return -1;
+		}
+		p->private = false;
+		p->file = mp_e->ptr;
+		p->file_offset = ofs;
+		p->read_bytes = size >= PGSIZE ? PGSIZE : size;
+		ofs += p->read_bytes;
+		size -= p->read_bytes;
+		mp_e->page_cnt++;
+	}
+
+	list_push_back(&t->mappings, &mp_e->elem);
+	return mp_e->id;
+}
+
+struct mapping_t*
+get_mapping_by_id(struct list* mappings, int id) {
+	struct mapping_t *entry;
+	for (struct list_elem *e = list_begin(mappings); e != list_end(mappings); e = list_next(e)) {
+		entry = list_entry(e, struct mapping_t, elem);
+		if (entry->id == id)
+			return entry;
+	}
+	return NULL;
+}
+
+void
+syscall_munmap(struct intr_frame *f) {
+	int m_id;
+	pop_stack(f->esp, &m_id, 1);
+
+	struct mapping_t *entry = get_mapping_by_id(&thread_current()->mappings, m_id);
+	list_remove(&entry->elem);
+
+//	printf("%x\n", entry->base);
+
+	for (int i = 0; i < entry->page_cnt; i++) {
+		page_free(page_for_addr((void *) ((entry->base) + (PGSIZE * i))));
+	}
+}
 #endif

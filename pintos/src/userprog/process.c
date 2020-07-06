@@ -20,6 +20,10 @@
 #include "threads/vaddr.h"
 #include "threads/malloc.h"
 
+#ifdef VM
+#include "vm/frame.h"
+#endif
+
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
 
@@ -35,10 +39,7 @@ process_execute (const char *file_name)
 
 	/* Make a copy of FILE_NAME.
 		 Otherwise there's a race between the caller and load(). */
-	fn_copy = palloc_get_page (0);
-	if (fn_copy == NULL) {
-		return TID_ERROR;
-	}
+	fn_copy = malloc(strlen(file_name)+1);
 	strlcpy (fn_copy, file_name, PGSIZE);
 
 	char *fn_cp = malloc(strlen(file_name)+1);
@@ -59,7 +60,7 @@ process_execute (const char *file_name)
 		/* Wait child thread running start_process */
 		sema_down(&current_thread->load_sema);
 		if (!current_thread->load_success)
-			return -1;
+			return TID_ERROR;
 	}
 
 	return tid;
@@ -86,8 +87,6 @@ start_process (void *file_name_)
 
 	char *token, *save_ptr;
 	token = strtok_r(fn_cp, " ", &save_ptr);
-
-
 
 	success = load (token, &if_.eip, &if_.esp);
 
@@ -132,9 +131,8 @@ start_process (void *file_name_)
 	if_.esp -= sizeof(int);
 	*(int*)if_.esp = 0;
 
-
 	/* If load failed, quit. */
-	palloc_free_page (file_name);
+	free(file_name);
 
 	struct thread * current_thread = thread_current();
 	current_thread->parent->load_success = success;
@@ -192,6 +190,7 @@ process_exit (void)
   uint32_t *pd;
 
   printf("%s: exit(%d)\n", cur->name, cur->ret_status);
+//	printf("tid = %d %s: exit(%d)\n", cur->tid, cur->name, cur->ret_status);
 
   /* ??? */
 	if (!lock_held_by_current_thread(&filesys_lock))
@@ -210,6 +209,21 @@ process_exit (void)
 
 	lock_release(&filesys_lock);
 
+//	printf("page_exit done\n");
+
+	struct mapping_t *mp_e;
+	while (!list_empty(&cur->mappings)) {
+		mp_e = list_entry(list_pop_front(&cur->mappings), struct mapping_t, elem);
+		for (int i = 0; i < mp_e->page_cnt; i++) {
+			page_free(page_for_addr((void *) ((mp_e->base) + (PGSIZE * i))));
+		}
+		list_remove(&mp_e->elem);
+		free(mp_e);
+	}
+
+	lock_acquire(&frame_lock);
+	page_exit();
+	lock_release(&frame_lock);
 
 	/* delete children list */
 	while (!list_empty(&cur->children)) {
@@ -341,6 +355,12 @@ load (const char *file_name, void (**eip) (void), void **esp)
   if (t->pagedir == NULL) 
     goto done;
   process_activate ();
+
+  /* Allocate page table */
+	t->pages = malloc (sizeof *t->pages);
+	if (t->pages == NULL)
+		goto done;
+	hash_init(t->pages, page_hash, page_less, NULL);
 
   /* Open executable file. */
   file = filesys_open (file_name);
@@ -512,15 +532,31 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
   ASSERT (ofs % PGSIZE == 0);
 
   file_seek (file, ofs);
-  while (read_bytes > 0 || zero_bytes > 0) 
+  while (read_bytes > 0 || zero_bytes > 0)
     {
       /* Calculate how to fill this page.
          We will read PAGE_READ_BYTES bytes from FILE
          and zero the final PAGE_ZERO_BYTES bytes. */
       size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
       size_t page_zero_bytes = PGSIZE - page_read_bytes;
-
       /* Get a page of memory. */
+#ifdef VM
+	    struct page *kpage = page_alloc(upage, writable);
+      if (kpage == NULL)
+        return false;
+
+      kpage->file = file;
+      kpage->file_offset = ofs;
+      kpage->read_bytes = page_read_bytes;
+      ofs += page_read_bytes;
+//			if (!frame_alloc(kpage))
+//				return false;
+//			if (file_read(file, kpage->frame->base, page_read_bytes) != (int) page_read_bytes) {
+//        page_free(kpage);
+//        return false;
+//      }
+//      memset(kpage->frame->base + page_read_bytes, 0, page_zero_bytes);
+#else
       uint8_t *kpage = palloc_get_page (PAL_USER);
       if (kpage == NULL)
         return false;
@@ -539,7 +575,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
           palloc_free_page (kpage);
           return false; 
         }
-
+#endif
       /* Advance. */
       read_bytes -= page_read_bytes;
       zero_bytes -= page_zero_bytes;
@@ -553,19 +589,35 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 static bool
 setup_stack (void **esp) 
 {
-  uint8_t *kpage;
   bool success = false;
+#ifdef VM
+  struct page *kpage = page_alloc(((uint8_t *) PHYS_BASE) - PGSIZE, true);
+  if (kpage != NULL) {
+    success = frame_alloc(kpage);
+		if (success) {
+			kpage->private = false;
+			*esp = PHYS_BASE;
+		}
+    else {
+			page_free(kpage);
+		}
+  }
+#else
+	uint8_t *kpage;
 
   kpage = palloc_get_page (PAL_USER | PAL_ZERO);
-  if (kpage != NULL) 
-    {
-      success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
-      if (success)
-        *esp = PHYS_BASE;
-      else
-        palloc_free_page (kpage);
-    }
-  return success;
+	if (kpage != NULL)
+	{
+			success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
+			if (success) {
+					*esp = PHYS_BASE;
+			}
+      else {
+					palloc_free_page(kpage);
+			}
+	}
+#endif
+	return success;
 }
 
 /* Adds a mapping from user virtual address UPAGE to kernel
