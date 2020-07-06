@@ -129,6 +129,7 @@ pintos_init (void)
   ide_init ();
   locate_block_devices ();
   filesys_init (format_filesys);
+  thread_init_dir ();
 #endif
 
 	/* yveh */

@@ -28,8 +28,12 @@
 #include "threads/switch.h"
 #include "threads/synch.h"
 #include "threads/vaddr.h"
+#include "threads/malloc.h"
 #ifdef USERPROG
 #include "userprog/process.h"
+#endif
+#ifdef FILESYS
+#include "filesys/directory.h"
 #endif
 
 /* Random value for struct thread's `magic' member.
@@ -37,6 +41,7 @@
    of thread.h for details. */
 #define THREAD_MAGIC 0xcd6abf4b
 
+struct list_elem;
 
 static struct fixed32 load_avg;
 
@@ -90,7 +95,6 @@ static void *alloc_frame (struct thread *, size_t size);
 static void schedule (void);
 void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
-struct child_process *get_child_by_tid(struct list* children, tid_t tid);
 static void thread_update_priority(struct thread*, void*);
 static void thread_update_sleep(struct thread*, void*);
 static void thread_update_load_avg(void);
@@ -219,6 +223,10 @@ thread_create (const char *name, int priority,
 #endif
 	/* end yveh */
 
+#ifdef FILESYS
+  t->dir = thread_current()->dir;
+#endif
+
   /* Stack frame for kernel_thread(). */
   kf = alloc_frame (t, sizeof *kf);
   kf->eip = NULL;
@@ -280,11 +288,16 @@ thread_unblock (struct thread *t)
 }
 
 void thread_check_switch() {
+	enum intr_level old_level = intr_disable();
   if (thread_current () != idle_thread &&
    !list_empty (&ready_list) && 
    thread_get_priority () <
    thread_get_certain_priority (list_entry (thread_ready_list_get_min(), struct thread, elem))) {
+    intr_set_level (old_level);
     thread_yield ();
+  }
+  else {
+    intr_set_level (old_level);
   }
 }
 
@@ -413,16 +426,6 @@ thread_set_priority (int new_priority)
   }
   else {
     t->priority = new_priority;
-    struct list_elem *e;
-    int ready_count = 0;
-    for (e = list_begin (&ready_list); e != list_end (&ready_list); e = list_next (e)) {
-      struct thread *tt = list_entry (e, struct thread, allelem);
-      if (t == tt) {
-        list_remove(e);
-        thread_insert_ready_list (&e);
-        break;
-      }
-    }
     thread_check_switch();
   }  
 }
@@ -665,7 +668,6 @@ init_thread (struct thread *t, const char *name, int priority)
   }
 
   list_init (&t->lock_list);
-  list_init (&t->donate_elem);
   t->priority_to_set = -1;
   t->max_donate_delta = 0;
   t->father = 0;
@@ -826,3 +828,9 @@ get_child_by_tid(struct list* children, tid_t tid) {
 	}
 	return NULL;
 }
+#ifdef FILESYS
+void
+thread_init_dir () {
+  initial_thread->dir = dir_open_root();
+}
+#endif

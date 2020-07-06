@@ -5,13 +5,10 @@
 #include "filesys/filesys.h"
 #include "filesys/inode.h"
 #include "threads/malloc.h"
-
-/* A directory. */
-struct dir 
-  {
-    struct inode *inode;                /* Backing store. */
-    off_t pos;                          /* Current position. */
-  };
+#include "userprog/syscall.h"
+#include "threads/thread.h"
+#include "file.h"
+#include "free-map.h"
 
 /* A single directory entry. */
 struct dir_entry 
@@ -26,7 +23,16 @@ struct dir_entry
 bool
 dir_create (block_sector_t sector, size_t entry_cnt)
 {
-  return inode_create (sector, entry_cnt * sizeof (struct dir_entry));
+  if (inode_create (sector, entry_cnt * sizeof (struct dir_entry))) {
+    struct inode * inode = inode_open (sector);
+    inode_set_dir (inode);
+    struct dir * dir = dir_open (inode);
+    dir_add(dir, ".", sector);
+    dir_add(dir, "..", sector);
+    dir_close(dir);
+    return true;
+  }
+  return false;
 }
 
 /* Opens and returns the directory for the given INODE, of which
@@ -38,7 +44,7 @@ dir_open (struct inode *inode)
   if (inode != NULL && dir != NULL)
     {
       dir->inode = inode;
-      dir->pos = 0;
+      dir->pos = 2 * sizeof (struct dir_entry); // jump '.' and '..' for readdir
       return dir;
     }
   else
@@ -174,6 +180,17 @@ dir_add (struct dir *dir, const char *name, block_sector_t inode_sector)
   e.inode_sector = inode_sector;
   success = inode_write_at (dir->inode, &e, sizeof e, ofs) == sizeof e;
 
+  /* Write .. infomation for true subdir */
+  if (success && inode_sector != inode_get_inumber (dir->inode)) {
+    struct inode* inode = inode_open (inode_sector);
+    if(inode_is_dir (inode) || (inode_close (inode), 0)) {
+      struct dir *subdir = dir_open (inode);
+      lookup (subdir, "..", &e, &ofs);
+      e.inode_sector = inode_get_inumber(dir->inode);
+      inode_write_at(subdir->inode, &e, sizeof e, ofs);
+      dir_close (subdir);
+    }
+  }
  done:
   return success;
 }
@@ -223,6 +240,10 @@ dir_readdir (struct dir *dir, char name[NAME_MAX + 1])
 {
   struct dir_entry e;
 
+  ASSERT (dir != NULL);
+  ASSERT (dir->inode != NULL);
+  ASSERT (dir->pos > 0);
+
   while (inode_read_at (dir->inode, &e, sizeof e, dir->pos) == sizeof e) 
     {
       dir->pos += sizeof e;
@@ -233,4 +254,122 @@ dir_readdir (struct dir *dir, char name[NAME_MAX + 1])
         } 
     }
   return false;
+}
+
+
+bool
+dir_subdir_create (struct dir* dir, const char* name) {
+  block_sector_t sector = -1u;
+  if (  dir != NULL
+    &&  name != NULL
+    &&  strlen(name) > 0
+    &&  free_map_allocate(1, &sector)
+    &&  dir_create(sector, 0)
+    &&  dir_add(dir, name, sector)
+    ) {
+    return true;
+  }
+  if (sector != -1u) {
+    free_map_release(sector, 1);
+  }
+  return false;
+}
+
+struct dir*
+dir_subdir_lookup (struct dir* dir, const char* name) {
+  struct inode* inode = NULL;
+  if (  dir != NULL
+    &&  name != NULL
+    &&  strlen(name) > 0
+    &&  dir_lookup(dir, name, &inode)
+    &&  inode != NULL
+    &&  (inode_is_dir(inode) || (inode_close(inode), 0))
+    ) {
+    return dir_open(inode);
+  }
+  return NULL;
+}
+
+bool
+dir_subdir_delete (struct dir* dir, const char* name) {
+  struct inode* inode = NULL;
+  if (  dir != NULL
+    &&  name != NULL
+    &&  strlen(name) > 0
+    &&  dir_lookup(dir, name, &inode)
+    &&  inode != NULL
+    &&  ( (
+              inode_is_dir(inode)
+          &&  inode_get_inumber(inode) != inode_get_inumber(dir_get_inode(thread_current()->dir))
+          &&  inode_get_open_cnt(inode) <= 1
+          )
+        || (inode_close(inode), 0)
+        )
+    ) {
+      struct dir* checker = dir_open(inode);
+      char* buffer = calloc(NAME_MAX + 1, 1);
+      bool not_empty = dir_readdir (checker, buffer);
+      dir_close (checker);
+      free (buffer);
+      if (!not_empty) {
+        return dir_remove (dir, name);
+      }
+  }
+  return false;
+}
+
+bool
+dir_subfile_create(struct dir* dir, const char* name, off_t initial_size) {
+  block_sector_t sector = -1u;
+  if (  dir != NULL
+    &&  name != NULL
+    &&  strlen(name) > 0
+    &&  free_map_allocate(1, &sector)
+    &&  inode_create(sector, initial_size)
+    &&  dir_add(dir, name, sector)
+    ) {
+    return true;
+  }
+  if (sector != -1u) {
+    free_map_release(sector, 1);
+  }
+  return false;
+}
+
+struct file*
+dir_subfile_lookup(struct dir* dir, const char* name) {
+  struct inode* inode = NULL;
+  if (  dir != NULL
+    &&  name != NULL
+    &&  strlen(name) > 0
+    &&  dir_lookup(dir, name, &inode)
+    &&  inode != NULL
+    &&  (!inode_is_dir(inode) || (inode_close(inode), 0))
+    ) {
+    struct file* file = file_open(inode);
+    file_set_dir(file, dir_reopen(dir));
+    return file;
+  }
+  return NULL;
+}
+
+bool
+dir_subfile_delete(struct dir* dir, const char* name) {
+  struct inode* inode = NULL;
+  if (  dir != NULL
+    &&  name != NULL
+    &&  strlen(name) > 0
+    &&  dir_lookup(dir, name, &inode)
+    &&  inode != NULL
+    &&  (!inode_is_dir(inode) || (inode_close(inode), 0))
+    ) {
+    inode_close(inode);
+    return dir_remove(dir, name);
+  }
+  return false;
+}
+
+bool
+dir_is_dirfile(struct fd_t* h) {
+  return inode_is_dir(file_get_inode(h->ptr));
 }

@@ -1,0 +1,178 @@
+		     +--------------------------+
+       	     |		    MS 110   	    |
+		     | PROJECT 2: USER PROGRAMS	|
+		     | 	   DESIGN DOCUMENT     	|
+		     +--------------------------+
+
+---- GROUP ----
+
+Zonghan Yang    <fstqwq@sjtu.edu.cn>
+Yuheng Zhang    <yveh1999@sjtu.edu.cn>
+Yunqing Li      <lyq_cs_sjtu@sjtu.edu.cn>
+Yi Wang         <refraction334@sjtu.edu.cn>
+
+---- PRELIMINARIES ----
+
+>> If you have any preliminary comments on your submission, notes for the
+>> TAs, or extra credit, please give them here.
+
+>> Please cite any offline or online sources you consulted while
+>> preparing your submission, other than the Pintos documentation, course
+>> text, lecture notes, and course staff.
+
+			   ARGUMENT PASSING
+			   ================
+
+---- DATA STRUCTURES ----
+
+>> A1: Copy here the declaration of each new or changed `struct' or
+>> `struct' member, global or static variable, `typedef', or
+>> enumeration.  Identify the purpose of each in 25 words or less.
+
+<thread>
+
+Add new attribute to struct thread:
+struct list files;
+
+<process>
+Add new macro name:
+#define WORD_SIZE 4
+
+
+---- ALGORITHMS ----
+
+>> A2: Briefly describe how you implemented argument parsing.  How do
+>> you arrange for the elements of argv[] to be in the right order?
+>> How do you avoid overflowing the stack page?
+
+The implementation of argument parsing: Tokenize the file_name, and then iterate the token, count the argc (argument count). After that, ask the for the room for argv[], which corresponds to the size we counted.Then push the element of argv, word align. Assure that argv[argc] is a null pointer, push the address of argv and finally a return address.
+A detail is that we move the stack pointer rather than pushing null value and return address.
+
+---- RATIONALE ----
+
+>> A3: Why does Pintos implement strtok_r() but not strtok()?
+
+If two threads calls strtok(), then data race condition may occur, for one thread would use the last token held by another thread, which is dangerous.
+
+>> A4: In Pintos, the kernel separates commands into a executable name
+>> and arguments.  In Unix-like systems, the shell does this
+>> separation.  Identify at least two advantages of the Unix approach.
+
+1) There's no need for the kernel to parse. 
+2) Before passing the command line to the kernel, shell can parse and check error.
+
+			     SYSTEM CALLS
+			     ============
+
+---- DATA STRUCTURES ----
+
+>> B1: Copy here the declaration of each new or changed `struct' or
+>> `struct' member, global or static variable, `typedef', or
+>> enumeration.  Identify the purpose of each in 25 words or less.
+
+<thread>
+Add new attribute to struct thread:
+int ret_status;
+int wait_tid; /* the current waiting child's tid*/
+int file_cnt; /* file number*/
+struct semaphore load_sema, wait_sema; /*keep waiting until makes sure whether the child process is successfully loaded.*/
+bool load_success; /* whether child process loaded executable successfully*/
+struct list children; /* list of child processes */
+struct list files; /* list of its executable file */
+
+Add new struct child_process:
+tid_t tid; /*its thread id*/
+int ret_status; /*its ret status*/
+bool done;
+struct list_elem elem;
+
+
+<syscall>
+Add new function:
+void* get_paddr(void *vaddr)
+bool is_valid_addr(void *addr) 
+void* pop_stack(int *esp, int *dst, int offset)
+
+Add new struct fd_t:
+struct file *ptr;
+int fd;
+struct list_elem elem;
+
+>> B2: Describe how file descriptors are associated with open files.
+>> Are file descriptors unique within the entire OS or just within a
+>> single process?
+
+Unique to each open file for every process.
+
+---- ALGORITHMS ----
+
+>> B3: Describe your code for reading and writing user data from the
+>> kernel.
+
+pop_stack and then check the validity of the address. Check the fd and read or write.
+
+>> B4: Suppose a system call causes a full page (4,096 bytes) of data
+>> to be copied from user space into the kernel.  What is the least
+>> and the greatest possible number of inspections of the page table
+>> (e.g. calls to pagedir_get_page()) that might result?  What about
+>> for a system call that only copies 2 bytes of data?  Is there room
+>> for improvement in these numbers, and how much?
+
+Twice if the data is not page aligned.
+Once if the address is aligned to the beginning of a page.
+
+>> B5: Briefly describe your implementation of the "wait" system call
+>> and how it interacts with process termination.
+
+Pop_stack() and then call process_wait(), get child and sema_down() the undone child process.
+
+>> B6: Any access to user program memory at a user-specified address
+>> can fail due to a bad pointer value.  Such accesses must cause the
+>> process to be terminated.  System calls are fraught with such
+>> accesses, e.g. a "write" system call requires reading the system
+>> call number from the user stack, then each of the call's three
+>> arguments, then an arbitrary amount of user memory, and any of
+>> these can fail at any point.  This poses a design and
+>> error-handling problem: how do you best avoid obscuring the primary
+>> function of code in a morass of error-handling?  Furthermore, when
+>> an error is detected, how do you ensure that all temporarily
+>> allocated resources (locks, buffers, etc.) are freed?  In a few
+>> paragraphs, describe the strategy or strategies you adopted for
+>> managing these issues.  Give an example.
+
+Using separate pre-processing functions. 
+
+Kill the process if a error is detected. For termination function, before reclaiming the process's memory, free any held locks and file descriptors first always.
+
+---- SYNCHRONIZATION ----
+
+>> B7: The "exec" system call returns -1 if loading the new executable
+>> fails, so it cannot return before the new executable has completed
+>> loading.  How does your code ensure this?  How is the load
+>> success/failure status passed back to the thread that calls "exec"?
+
+using a load sema.
+
+
+>> B8: Consider parent process P with child process C.  How do you
+>> ensure proper synchronization and avoid race conditions when P
+>> calls wait(C) before C exits?  After C exits?  How do you ensure
+>> that all resources are freed in each case?  How about when P
+>> terminates without waiting, before C exits?  After C exits?  Are
+>> there any special cases?
+
+P calls wait(C) before C exits:
+P acquires the lock, because C is still running, then waits on the condition variable. When C exit, it wakes and reads the status.
+
+P calls wait(C) after C exits:
+
+P acquires the lock, because C exits, then reads the status. 
+
+P terminates, before C exits:
+
+P acquires the lock, go to C's thread, and before frezing it, then nulls its pointer/
+
+P terminates without waiting, after C exits:
+
+C acquires the lock and nulls the thread pointer to itself.
+

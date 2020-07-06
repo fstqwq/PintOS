@@ -120,7 +120,7 @@ struct thread
     int max_donate_delta;               /* Max Donate = priority + delta */
     int priority_to_set;                /* Priority to be set when donation is enabled. */
     struct thread *father;              /* Lock father this thread. */
-    struct list_elem donate_elem;       /* Donation list of locks. */
+    struct list_elem donate_elem;            /* Donation list elem for locks. */
    /* Elements added end */
 
     struct list_elem allelem;           /* List element for all threads list. */
@@ -144,9 +144,13 @@ struct thread
 		/* end yveh */
 #endif
 
+
 #ifdef VM
 		struct hash *pages;
 		void *esp;
+#endif
+#ifdef FILESYS
+   struct dir *dir;
 #endif
 
     /* Owned by thread.c. */
@@ -197,6 +201,12 @@ void thread_add_recent_cpu(void);
 
 bool thread_priority_greater (const struct list_elem *, const struct list_elem *, void *);
 void thread_tick_events(bool);
+
+struct child_process *get_child_by_tid(struct list* children, tid_t tid);
+
+#ifdef FILESYS
+void thread_init_dir (void);
+#endif
 
 
 #endif /* threads/thread.h */

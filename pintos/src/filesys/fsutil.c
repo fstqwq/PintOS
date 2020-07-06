@@ -123,7 +123,6 @@ fsutil_extract (char **argv UNUSED)
           dst = filesys_open (file_name);
           if (dst == NULL)
             PANIC ("%s: open failed", file_name);
-
           /* Do copy. */
           while (size > 0)
             {
