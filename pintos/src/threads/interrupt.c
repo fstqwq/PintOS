@@ -360,6 +360,10 @@ intr_handler (struct intr_frame *frame)
       in_external_intr = true;
       yield_on_return = false;
     }
+#ifdef VM
+	else
+    thread_current()->esp = frame->esp;
+#endif
 
   /* Invoke the interrupt's handler. */
   handler = intr_handlers[frame->vec_no];

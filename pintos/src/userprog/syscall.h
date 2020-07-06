@@ -9,6 +9,14 @@ struct fd_t {
 	struct list_elem elem;
 };
 
+struct mapping_t {
+	struct file *ptr;
+	int id;
+	int page_cnt;
+	void *base;
+	struct list_elem elem;
+};
+
 void syscall_init (void);
 
 #endif /* userprog/syscall.h */

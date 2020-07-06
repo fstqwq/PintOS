@@ -37,6 +37,10 @@
 #include "filesys/filesys.h"
 #include "filesys/fsutil.h"
 #endif
+#ifdef VM
+#include "vm/page.h"
+#include "vm/swap.h"
+#endif
 
 /* Page directory with kernel mappings only. */
 uint32_t *init_page_dir;
@@ -88,7 +92,7 @@ pintos_init (void)
   /* Initialize ourselves as a thread so we can use locks,
      then enable console locking. */
   thread_init ();
-  console_init ();  
+  console_init ();
 
   /* Greet user. */
   printf ("Pintos booting with %'"PRIu32" kB RAM...\n",
@@ -126,6 +130,18 @@ pintos_init (void)
   locate_block_devices ();
   filesys_init (format_filesys);
 #endif
+
+	/* yveh */
+#ifdef USERPROG
+	lock_init(&filesys_lock);
+#endif
+#ifdef VM
+	page_init();
+	frame_init();
+	swap_init();
+#endif
+	/* end yveh */
+
   printf ("Boot complete.\n");
   
   if (*argv != NULL) {

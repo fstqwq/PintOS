@@ -3,6 +3,7 @@
 
 #include <debug.h>
 #include <list.h>
+#include <hash.h>
 #include <stdint.h>
 #include "synch.h"
 #include "threads/fixed_point.h"
@@ -132,14 +133,20 @@ struct thread
     uint32_t *pagedir;                  /* Page directory. */
 
 		/* yveh */
-		int ret_status, file_cnt, wait_tid;
+		int ret_status, file_cnt, mapping_cnt, wait_tid;
 		struct semaphore load_sema, wait_sema;
 		bool load_success;
 		struct thread *parent;
 		struct list children;
 		struct file *self;
 		struct list files;
+		struct list mappings;
 		/* end yveh */
+#endif
+
+#ifdef VM
+		struct hash *pages;
+		void *esp;
 #endif
 
     /* Owned by thread.c. */
