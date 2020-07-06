@@ -1,0 +1,12 @@
+========================================================================
+                       Bochs x86 Emulator 2.6.2
+                Built from SVN snapshot on May 26, 2013
+                  Compiled on Jun 26 2020 at 03:01:58
+========================================================================
+00000000000i[     ] reading configuration from bochsrc.txt
+00000000000i[     ] installing nogui module as the Bochs GUI
+00000000000i[     ] using log file bochsout.txt
+========================================================================
+Bochs is exiting with the following message:
+[ACPI ] ACPI control: soft power off
+========================================================================

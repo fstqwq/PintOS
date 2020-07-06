@@ -1,0 +1,37 @@
+Copying tests/filesys/base/lg-create to scratch partition...
+qemu-system-i386 -device isa-debug-exit -drive format=raw,media=disk,index=0,file=/tmp/MZrxFDepCx.dsk -m 4 -net none -nographic -monitor null
+Pintos hda1
+Loading.............
+Kernel command line: -q -f extract run lg-create
+Pintos booting with 3,968 kB RAM...
+367 pages available in kernel pool.
+367 pages available in user pool.
+Calibrating timer...  431,718,400 loops/s.
+hda: 5,040 sectors (2 MB), model "QM00001", serial "QEMU HARDDISK"
+hda1: 217 sectors (108 kB), Pintos OS kernel (20)
+hda2: 4,096 sectors (2 MB), Pintos file system (21)
+hda3: 99 sectors (49 kB), Pintos scratch (22)
+filesys: using hda2
+scratch: using hda3
+Formatting file system...done.
+Boot complete.
+Extracting ustar archive from scratch device into file system...
+Putting 'lg-create' into the file system...
+Erasing ustar archive...
+Executing 'lg-create':
+(lg-create) begin
+(lg-create) create "blargle"
+(lg-create) open "blargle" for verification
+(lg-create) verified contents of "blargle"
+(lg-create) close "blargle"
+(lg-create) end
+lg-create: exit(0)
+Execution of 'lg-create' complete.
+Timer: 72 ticks
+Thread: 43 idle ticks, 29 kernel ticks, 0 user ticks
+hda2 (filesys): 188 reads, 362 writes
+hda3 (scratch): 98 reads, 2 writes
+Console: 1030 characters output
+Keyboard: 0 keys pressed
+Exception: 0 page faults
+Powering off...

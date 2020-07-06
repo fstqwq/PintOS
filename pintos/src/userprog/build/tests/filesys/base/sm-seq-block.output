@@ -1,0 +1,40 @@
+Copying tests/filesys/base/sm-seq-block to scratch partition...
+qemu-system-i386 -device isa-debug-exit -drive format=raw,media=disk,index=0,file=/tmp/eUyZBpDzRI.dsk -m 4 -net none -nographic -monitor null
+Pintos hda1
+Loading.............
+Kernel command line: -q -f extract run sm-seq-block
+Pintos booting with 3,968 kB RAM...
+367 pages available in kernel pool.
+367 pages available in user pool.
+Calibrating timer...  438,272,000 loops/s.
+hda: 5,040 sectors (2 MB), model "QM00001", serial "QEMU HARDDISK"
+hda1: 217 sectors (108 kB), Pintos OS kernel (20)
+hda2: 4,096 sectors (2 MB), Pintos file system (21)
+hda3: 99 sectors (49 kB), Pintos scratch (22)
+filesys: using hda2
+scratch: using hda3
+Formatting file system...done.
+Boot complete.
+Extracting ustar archive from scratch device into file system...
+Putting 'sm-seq-block' into the file system...
+Erasing ustar archive...
+Executing 'sm-seq-block':
+(sm-seq-block) begin
+(sm-seq-block) create "noodle"
+(sm-seq-block) open "noodle"
+(sm-seq-block) writing "noodle"
+(sm-seq-block) close "noodle"
+(sm-seq-block) open "noodle" for verification
+(sm-seq-block) verified contents of "noodle"
+(sm-seq-block) close "noodle"
+(sm-seq-block) end
+sm-seq-block: exit(0)
+Execution of 'sm-seq-block' complete.
+Timer: 68 ticks
+Thread: 37 idle ticks, 30 kernel ticks, 1 user ticks
+hda2 (filesys): 35 reads, 223 writes
+hda3 (scratch): 98 reads, 2 writes
+Console: 1149 characters output
+Keyboard: 0 keys pressed
+Exception: 0 page faults
+Powering off...
