@@ -1,0 +1,39 @@
+Copying tests/userprog/wait-twice to scratch partition...
+Copying tests/userprog/child-simple to scratch partition...
+qemu-system-i386 -device isa-debug-exit -drive format=raw,media=disk,index=0,file=/tmp/92dWvyGCPW.dsk -m 4 -net none -nographic -monitor null
+Pintos hda1
+Loading.............
+Kernel command line: -q -f extract run wait-twice
+Pintos booting with 3,968 kB RAM...
+367 pages available in kernel pool.
+367 pages available in user pool.
+Calibrating timer...  444,006,400 loops/s.
+hda: 5,040 sectors (2 MB), model "QM00001", serial "QEMU HARDDISK"
+hda1: 217 sectors (108 kB), Pintos OS kernel (20)
+hda2: 4,096 sectors (2 MB), Pintos file system (21)
+hda3: 188 sectors (94 kB), Pintos scratch (22)
+filesys: using hda2
+scratch: using hda3
+Formatting file system...done.
+Boot complete.
+Extracting ustar archive from scratch device into file system...
+Putting 'wait-twice' into the file system...
+Putting 'child-simple' into the file system...
+Erasing ustar archive...
+Executing 'wait-twice':
+(wait-twice) begin
+(child-simple) run
+child-simple: exit(81)
+(wait-twice) wait(exec()) = 81
+(wait-twice) wait(exec()) = -1
+(wait-twice) end
+wait-twice: exit(0)
+Execution of 'wait-twice' complete.
+Timer: 72 ticks
+Thread: 42 idle ticks, 29 kernel ticks, 1 user ticks
+hda2 (filesys): 65 reads, 389 writes
+hda3 (scratch): 187 reads, 2 writes
+Console: 1045 characters output
+Keyboard: 0 keys pressed
+Exception: 0 page faults
+Powering off...
